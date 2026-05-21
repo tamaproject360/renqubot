@@ -1,0 +1,4 @@
+[API] Listening on http://localhost:3001
+{"level":"info","message":"Incoming request","timestamp":"2026-05-21T15:23:13.779Z","module":"API","correlationId":"fdf7ef92-7500-4465-b2b5-a9dbfab84135","method":"GET","path":"/api/spreadsheet-sync/jobs"}
+{"level":"info","message":"Incoming request","timestamp":"2026-05-21T15:23:13.812Z","module":"API","correlationId":"9c699327-66cf-48b0-bca6-ec54e6bf5531","method":"GET","path":"/api/ai/capabilities"}
+{"level":"info","message":"Incoming request","timestamp":"2026-05-21T15:23:13.827Z","module":"API","correlationId":"25992820-2347-4032-8965-8668f6dfee5a","method":"POST","path":"/api/spreadsheet-sync/retry"}

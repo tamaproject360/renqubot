@@ -4,7 +4,7 @@ import {
   systemStatusSchema,
 } from '../../contracts/system';
 
-const PHASE = 'Phase 3 - Service API';
+const PHASE = 'Phase 6 - Observability & Reliability';
 
 export class SystemService {
   public getSystemStatus(): ISystemStatus {

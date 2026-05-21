@@ -5,6 +5,8 @@ import {
   type ITransactionData,
 } from './promt';
 import { getDailySummary, getTotalBalance, getTransactions, sql } from '../db';
+import { logger } from '../logger';
+import { withRetry } from '../retry';
 import { saveToSheetDirect } from '../spreadsheet';
 import { GEMINI_API_KEY, GEMINI_HOST, GEMINI_MODEL } from '../config';
 
@@ -86,14 +88,23 @@ ${latestExpense
   )
   .join('\n')}`;
 
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: contents,
-    config: {
-      systemInstruction: systemInstructions + additionalContexts,
-      responseMimeType: 'application/json',
+  const response = await withRetry(
+    async () =>
+      ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: contents,
+        config: {
+          systemInstruction: systemInstructions + additionalContexts,
+          responseMimeType: 'application/json',
+        },
+      }),
+    {
+      attempts: 3,
+      baseDelayMs: 1_000,
+      module: 'AI',
+      operation: 'generateContent',
     },
-  });
+  );
 
   const result = response.text;
 
@@ -126,8 +137,25 @@ ${latestExpense
       merchant_or_sender: data.transaction_data?.merchant_or_sender ?? null,
     };
 
-    await sql`INSERT INTO transactions ${sql(transaction)}`;
-    await saveToSheetDirect(data);
+    const insertedTransactions = await sql<
+      { id: number }[]
+    >`INSERT INTO transactions ${sql({
+      ...transaction,
+      spreadsheet_sync_status: 'pending',
+    })} RETURNING id;`;
+    const spreadsheetSynced = await saveToSheetDirect(data);
+    const syncStatus = spreadsheetSynced ? 'synced' : 'pending';
+    const transactionId = insertedTransactions[0]?.id;
+
+    if (transactionId) {
+      await sql`UPDATE transactions SET spreadsheet_sync_status = ${syncStatus}, updated_at = unixepoch() WHERE id = ${transactionId};`;
+    }
+
+    logger.info('Transaction persisted', {
+      module: 'AI',
+      transactionId,
+      spreadsheetSyncStatus: syncStatus,
+    });
   }
 
   return data;

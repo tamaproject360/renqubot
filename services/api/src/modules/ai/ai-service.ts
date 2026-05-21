@@ -1,66 +1,66 @@
 import type { IAppConfig, ISecretMeta } from '../../contracts/config';
 import type { IDiagnosticResult } from '../../contracts/diagnostics';
+import {
+  AnthropicProviderAdapter,
+  GeminiProviderAdapter,
+  type IAIProviderAdapter,
+  OpenAICompatibleProviderAdapter,
+  OpenAIProviderAdapter,
+} from './ai-provider';
 
 export class AiService {
+  private readonly providers: IAIProviderAdapter[] = [
+    new GeminiProviderAdapter(),
+    new OpenAIProviderAdapter(),
+    new AnthropicProviderAdapter(),
+    new OpenAICompatibleProviderAdapter(),
+  ];
+
   public testConnection(
     config: IAppConfig,
     secrets: ISecretMeta[],
   ): IDiagnosticResult {
     const checkedAt = new Date().toISOString();
-    const activeSecretKey =
-      config.activeAiProvider === 'openai-compatible'
-        ? 'custom.apiKey'
-        : `${config.activeAiProvider}.apiKey`;
-    const hasSecret = secrets.some((secret) => secret.key === activeSecretKey);
-    const model = this.getActiveModel(config);
+    const provider = this.getActiveProvider(config);
 
-    if (!hasSecret) {
+    if (!provider) {
       return {
         status: 'unhealthy',
-        message: 'API key provider AI aktif belum tersedia.',
+        message: 'Provider AI aktif tidak terdaftar.',
         details: {
           provider: config.activeAiProvider,
-          requiredSecret: activeSecretKey,
         },
         checkedAt,
       };
     }
 
-    if (!model) {
-      return {
-        status: 'degraded',
-        message: 'Model provider AI aktif belum dikonfigurasi.',
-        details: {
-          provider: config.activeAiProvider,
-        },
-        checkedAt,
-      };
-    }
+    const result = provider.validate({ config, secrets });
 
     return {
-      status: 'healthy',
-      message: 'Konfigurasi provider AI aktif lengkap untuk diagnostics dasar.',
+      status: result.healthy ? 'healthy' : 'unhealthy',
+      message: result.message,
       details: {
-        provider: config.activeAiProvider,
-        model,
+        provider: provider.id,
+        label: provider.label,
+        capabilities: provider.capabilities,
+        ...result.details,
       },
       checkedAt,
     };
   }
 
-  private getActiveModel(config: IAppConfig) {
-    if (config.activeAiProvider === 'gemini') {
-      return config.ai.gemini.model;
-    }
+  public getCapabilities() {
+    return this.providers.map((provider) => ({
+      id: provider.id,
+      label: provider.label,
+      capabilities: provider.capabilities,
+      secretKey: provider.getSecretKey(),
+    }));
+  }
 
-    if (config.activeAiProvider === 'openai') {
-      return config.ai.openai.model;
-    }
-
-    if (config.activeAiProvider === 'anthropic') {
-      return config.ai.anthropic.model;
-    }
-
-    return config.ai.custom.model;
+  private getActiveProvider(config: IAppConfig) {
+    return this.providers.find(
+      (provider) => provider.id === config.activeAiProvider,
+    );
   }
 }

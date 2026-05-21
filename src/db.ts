@@ -48,6 +48,18 @@ export const startMigration = async () => {
     "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
   ) STRICT;`;
 
+  const transactionColumns = await sql<{ name: string }[]>`
+    PRAGMA table_info('transactions');
+  `;
+
+  if (
+    !transactionColumns.some(
+      (column) => column.name === 'spreadsheet_sync_status',
+    )
+  ) {
+    await sql`ALTER TABLE transactions ADD COLUMN spreadsheet_sync_status TEXT DEFAULT 'pending';`;
+  }
+
   await sql`CREATE TABLE IF NOT EXISTS "schema_migrations" (
     "version" TEXT PRIMARY KEY,
     "applied_at" INTEGER DEFAULT (unixepoch()) NOT NULL
@@ -76,6 +88,16 @@ export const startMigration = async () => {
     "field" TEXT,
     "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL
   ) STRICT;`;
+
+  await sql`CREATE TABLE IF NOT EXISTS "spreadsheet_sync_jobs" (
+    "id" INTEGER PRIMARY KEY,
+    "payload" TEXT NOT NULL,
+    "status" TEXT DEFAULT 'pending' NOT NULL,
+    "attempts" INTEGER DEFAULT 0 NOT NULL,
+    "last_error" TEXT,
+    "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
+    "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
+  ) STRICT;`;
 };
 
 export interface ITransaction {
@@ -86,6 +108,7 @@ export interface ITransaction {
   date: string;
   description: string | null;
   merchant_or_sender: string | null;
+  spreadsheet_sync_status?: string | null;
   created_at: number;
   updated_at: number;
 }

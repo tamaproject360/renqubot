@@ -187,6 +187,20 @@ renqubot/
 │  └─ index.ts                # legacy bot runtime entry
 ```
 
+## Implementation Recommendation Status
+
+Rekomendasi implementasi Phase 10 saat ini dipetakan sebagai berikut:
+
+1. Backend configuration platform diprioritaskan lebih dulu melalui `ConfigService` di `services/api/src/modules/config`.
+2. Next.js admin console berjalan terpisah di `apps/web` dengan backend API Bun di `services/api`.
+3. Inti backend baru menggunakan `ConfigService`, `WhatsappService`, `DiagnosticsService`, `AiService`, `HealthService`, dan `DatabaseService`.
+4. AI layer backend API memiliki adapter registry untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider di `services/api/src/modules/ai`.
+5. MVP GUI dimulai dari Dashboard, Setup, Integrations, WhatsApp, Transactions, dan System.
+6. Fase pertama delivery sudah mencakup save config draft, diagnostics provider AI, dan QR/status WhatsApp.
+7. SQLite tetap digunakan dengan abstraction awal melalui `DatabaseService` dan schema queue Spreadsheet.
+8. Integrasi Google Sheets sekarang memiliki fondasi `spreadsheet_sync_jobs` agar kegagalan sinkronisasi tidak harus memblokir transaksi utama.
+9. Milestone delivery bertahap dicatat di `docs/release-plan.md`.
+
 ## Workflow (make with mermaid diagram syntax)
 
 ```mermaid
@@ -274,7 +288,7 @@ Backend service baru berada di `services/api` dan berjalan di port `API_PORT` at
 }
 ```
 
-Endpoint Phase 3 yang tersedia:
+Endpoint backend yang tersedia:
 
 1. `GET /health`
    - status proses backend service.
@@ -306,12 +320,32 @@ Endpoint Phase 3 yang tersedia:
     - membaca transaksi terbaru untuk dashboard awal.
 15. `GET /api/summary`
     - membaca saldo, pemasukan, pengeluaran, jumlah transaksi, dan transaksi terbaru.
+16. `GET /api/ai/capabilities`
+    - membaca capability registry provider AI.
+17. `GET /api/spreadsheet-sync/jobs`
+    - membaca daftar job sinkronisasi Spreadsheet.
+18. `POST /api/spreadsheet-sync/retry`
+    - menjalankan retry untuk job Spreadsheet berstatus `pending`.
 
 Endpoint `/health` dan `/ready` sekarang menggunakan `HealthService` untuk mengagregasi status database, AI, spreadsheet, dan WhatsApp. Jika komponen critical tidak siap, endpoint dapat mengembalikan HTTP `503` dengan envelope error-free tetapi status readiness `not_ready`.
 
 ## Runtime Status Bridge
 
 WhatsApp runtime legacy menulis status koneksi dan QR terakhir ke `data/runtime/whatsapp-status.json` melalui `src/whatsapp/runtime-state.ts`. Backend API membaca file ini untuk endpoint WhatsApp status dan QR. Pendekatan ini dipilih karena bot runtime dan backend API berjalan sebagai service terpisah, sehingga state tidak bisa hanya disimpan dalam memory process yang sama.
+
+## Observability & Reliability
+
+Phase 6 menambahkan fondasi reliability berikut:
+
+1. Structured logging JSON untuk backend API dan bot runtime legacy dengan sanitasi field sensitif seperti `key`, `secret`, `token`, `password`, dan `credential`.
+2. Correlation ID request API melalui header `x-correlation-id` atau `crypto.randomUUID()` bila header tidak tersedia.
+3. Retry policy eksplisit untuk call Gemini dan append Google Sheets.
+4. Health aggregation membedakan `healthy`, `degraded`, dan `unhealthy` melalui `HealthService`.
+5. Fallback mode Google Sheets: transaksi tetap disimpan ke SQLite, sementara kegagalan append membuat job `spreadsheet_sync_jobs` berstatus `pending`.
+6. Tabel transaksi memiliki `spreadsheet_sync_status` untuk menandai status sinkronisasi per transaksi.
+7. Backend API menyediakan endpoint operasional:
+   - `GET /api/spreadsheet-sync/jobs`
+   - `POST /api/spreadsheet-sync/retry`
 
 ## Configuration Platform
 

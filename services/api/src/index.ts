@@ -1,5 +1,6 @@
 import { ZodError } from 'zod';
 import { fail, ok, readJsonBody, validationError } from './lib/http';
+import { logger } from './lib/logger';
 import { AiService } from './modules/ai/ai-service';
 import { ConfigService } from './modules/config/config-service';
 import { DatabaseService } from './modules/database/database-service';
@@ -13,7 +14,7 @@ import { WhatsappService } from './modules/whatsapp/whatsapp-service';
 const configService = new ConfigService();
 const databaseService = new DatabaseService();
 const aiService = new AiService();
-const spreadsheetService = new SpreadsheetService();
+const spreadsheetService = new SpreadsheetService(databaseService);
 const diagnosticsService = new DiagnosticsService(
   databaseService,
   aiService,
@@ -28,12 +29,16 @@ const notFound = () => {
   return fail('NOT_FOUND', 'Route tidak ditemukan.', 404);
 };
 
-const handleError = (error: unknown) => {
+const handleError = (error: unknown, correlationId?: string) => {
   if (error instanceof ZodError) {
     return validationError(error);
   }
 
-  console.error('[API] Unhandled request error', error);
+  logger.error('Unhandled request error', {
+    module: 'API',
+    correlationId,
+    error: error instanceof Error ? error.message : String(error),
+  });
   return fail('INTERNAL_ERROR', 'Terjadi kesalahan internal.', 500);
 };
 
@@ -41,6 +46,15 @@ const server = Bun.serve({
   port: Number(Bun.env.API_PORT || 3001),
   async fetch(request) {
     const url = new URL(request.url);
+    const correlationId =
+      request.headers.get('x-correlation-id') ?? crypto.randomUUID();
+
+    logger.info('Incoming request', {
+      module: 'API',
+      correlationId,
+      method: request.method,
+      path: url.pathname,
+    });
 
     if (url.pathname === '/health') {
       const configStatus = await configService.getStatus();
@@ -56,7 +70,7 @@ const server = Bun.serve({
       return ok(
         {
           status: ready ? 'ready' : 'not_ready',
-          phase: 'Phase 3 - Service API',
+          phase: 'Phase 6 - Observability & Reliability',
           health,
           missingFields: configStatus.missingFields,
         },
@@ -141,6 +155,10 @@ const server = Bun.serve({
         });
       }
 
+      if (url.pathname === '/api/ai/capabilities' && request.method === 'GET') {
+        return ok(aiService.getCapabilities());
+      }
+
       if (
         url.pathname === '/api/diagnostics/spreadsheet' &&
         request.method === 'GET'
@@ -152,6 +170,30 @@ const server = Bun.serve({
         return ok(result, {
           status: result.status === 'unhealthy' ? 503 : 200,
         });
+      }
+
+      if (
+        url.pathname === '/api/spreadsheet-sync/jobs' &&
+        request.method === 'GET'
+      ) {
+        const limit = Number(url.searchParams.get('limit') || 25);
+        const configStatus = await configService.getStatus();
+        const result = await spreadsheetService.listSyncJobs(
+          configStatus.config,
+          Number.isFinite(limit) ? limit : 25,
+        );
+        return ok(result);
+      }
+
+      if (
+        url.pathname === '/api/spreadsheet-sync/retry' &&
+        request.method === 'POST'
+      ) {
+        const configStatus = await configService.getStatus();
+        const result = await spreadsheetService.retryPendingSyncJobs(
+          configStatus.config,
+        );
+        return ok(result);
       }
 
       if (url.pathname === '/api/whatsapp/status' && request.method === 'GET') {
@@ -206,7 +248,7 @@ const server = Bun.serve({
         return ok(summary);
       }
     } catch (error) {
-      return handleError(error);
+      return handleError(error, correlationId);
     }
 
     return notFound();

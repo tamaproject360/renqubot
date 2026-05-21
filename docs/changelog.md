@@ -2,6 +2,14 @@
 
 ## 2026-05-21
 
+- Menambahkan Phase 6 reliability foundation: structured JSON logger untuk API dan bot runtime, sanitasi field sensitif, dan correlation ID request API.
+- Menambahkan retry policy eksplisit untuk Gemini `generateContent` dan append Google Sheets.
+- Menambahkan fallback Spreadsheet yang tetap menyimpan transaksi DB lalu menandai `spreadsheet_sync_status` dan membuat job `spreadsheet_sync_jobs` saat append gagal.
+- Menambahkan endpoint operasional `GET /api/spreadsheet-sync/jobs` dan `POST /api/spreadsheet-sync/retry` untuk retry sinkronisasi Spreadsheet.
+- Menyelesaikan item Critical/High Phase 10 dengan AI provider adapter registry untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider.
+- Menambahkan endpoint `/api/ai/capabilities` untuk mengekspos capability registry ke GUI.
+- Menambahkan fondasi sync queue Google Sheets melalui tabel `spreadsheet_sync_jobs` dan enqueue otomatis saat append Spreadsheet gagal.
+- Menambahkan `docs/release-plan.md` sebagai milestone Foundation Backend, Setup GUI MVP, dan Operational Dashboard.
 - Memperbarui README dengan instruksi testing lokal untuk backend API, frontend Next.js, dan bot runtime legacy.
 - Memperbaiki script workspace root untuk menjalankan frontend/backend typecheck via `bun run --filter`.
 - Menambahkan Admin Frontend Phase 4 dengan Next.js App Router route `/dashboard`, `/setup`, `/integrations`, `/whatsapp`, `/transactions`, dan `/system`.
