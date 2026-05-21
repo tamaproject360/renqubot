@@ -1,36 +1,220 @@
-# Catat Pengeluaran/Pemasukan via AI
+# Renqu Bot
 
-## Tujuan ?
+Bot pencatatan keuangan berbasis WhatsApp dengan AI inference multi-provider untuk mengklasifikasikan transaksi pemasukan dan pengeluaran, menyimpan data ke SQLite, dan menyinkronkannya ke Google Spreadsheet.
 
-Karena malas harus buka aplikasi lain, mending langsung buka WANGSAP. Kan enak tinggal SS/Foto kirim AI, biarkan **AI KERJA** biar bisa **NGAPAIN** gitu
+## Overview
 
-## Fitur
+**Renqu Bot** membantu mencatat transaksi keuangan langsung dari percakapan WhatsApp. Pengguna dapat mengirim teks, gambar struk, atau gambar dengan caption, lalu sistem akan memproses input tersebut menggunakan AI untuk mengekstrak transaksi dan menyimpannya sebagai data keuangan terstruktur.
 
-Melakukan klasifikasi untuk gambar atau text yang masuk apakah pemasukan atau pengeluaran dan menyimpannya ke database serta spreadsheet.
+Saat ini aplikasi berjalan sebagai **backend monolith berbasis Bun + TypeScript**. Arsitektur target berikutnya adalah menambahkan **admin GUI berbasis Next.js** untuk setup dan operasional.
 
-## Model
+Dokumen arsitektur utama tersedia di `docs/specs.md` dan tasklist pengembangan ada di `docs/task.md`.
 
-Menggunakan model `gemini-2.0-flash-lite`. Biar apa ? **biar murah**.
-Berdasarkan data dari [https://aistudio.google.com/](https://aistudio.google.com/) model `gemini-2.5-flash-lite` itu yang masih gratis dengan 10 RPM, 250K TPM, dan 20RPD.
+## Core Capabilities
 
-## FAQ
+- Menerima pesan WhatsApp dari user
+- Mendukung input teks, gambar, dan gambar + caption
+- Mengklasifikasikan transaksi sebagai pemasukan atau pengeluaran
+- Menyimpan raw message dan transaksi ke SQLite
+- Mengirim balasan otomatis ke WhatsApp
+- Menyinkronkan transaksi ke Google Spreadsheet
+- Membatasi akses berdasarkan daftar `ALLOWED_USER_IDS`
+- Menyimpan sesi autentikasi WhatsApp ke database
 
-### Support apa aja ?
+## Current Architecture
 
-Support input user berupa Gambar atau Text atau keduanya.
+Komponen utama saat ini:
 
-### Instalasi ?
+- **Runtime**: Bun
+- **Language**: TypeScript
+- **Messaging**: Baileys
+- **AI Inference**: saat ini Gemini, diarahkan ke arsitektur multi-provider
+- **Database**: SQLite via `Bun.SQL`
+- **Spreadsheet Integration**: Google Sheets API
 
-Buka `releases` terus tinggal jalanin aja. Ngga mau ? tinggal clone aja nih repo, terus `bun start`
+Arah pengembangan berikutnya:
 
-### Ngebug ? Error ?
+- provider AI yang bisa dipilih: Gemini, OpenAI, Anthropic, dan custom OpenAI-compatible
+- admin panel Next.js untuk setup konfigurasi
+- health diagnostics dan status WhatsApp via GUI
+- abstraction layer untuk AI, config, dan diagnostics service
 
-Benerin aja lah sendiri atau open `issue` aja, kalau ngga malas bakal kubales.
+## Project Structure
 
-### Apakah Data Keuanganku AMAN ??
+```text
+renqubot/
+├─ docs/
+│  ├─ specs.md
+│  └─ task.md
+├─ scripts/
+├─ src/
+│  ├─ ai/
+│  ├─ events/
+│  ├─ spreadsheet/
+│  ├─ whatsapp/
+│  ├─ config.ts
+│  ├─ db.ts
+│  └─ index.ts
+├─ .env.example
+├─ bun.lock
+├─ ecosystem.config.cjs
+├─ package.json
+├─ README.md
+└─ tsconfig.json
+```
 
-Kau pikir aman kah ? kan kau dengan **sadar** dan **tanpa paksaan** juga **sharing data dengan AI**.
+## Application Flow
 
-## Lisensi
+```mermaid
+flowchart TD
+    A[WhatsApp User] -->|Text / Image / Caption| B[Baileys Socket]
+    B --> C[message-upsert handler]
+    C --> D[Normalize Message]
+    D --> E{Allowed User?}
+    E -- No --> F[Ignore Message]
+    E -- Yes --> G{Image Present?}
+    G -- Yes --> H[Download Media Buffer]
+    G -- No --> I[Build Text Payload]
+    H --> J[Build AI Payload]
+    I --> J[Build AI Payload]
+    J --> K[Generate AI Provider Response]
+    K --> L{Is Transaction?}
+    L -- No --> M[Send Reply to WhatsApp]
+    L -- Yes --> N[Insert Transaction to SQLite]
+    N --> O[Append to Google Spreadsheet]
+    O --> P[Send Reply to WhatsApp]
+    M --> Q[Done]
+    P --> Q[Done]
+```
+
+## Requirements
+
+Sebelum menjalankan aplikasi, siapkan:
+
+- [Bun](https://bun.sh)
+- akun WhatsApp untuk login bot
+- API key provider AI
+- Google Spreadsheet ID
+- Google Cloud service account key untuk akses spreadsheet
+
+## Configuration
+
+Salin `.env.example` menjadi `.env` lalu isi nilai yang diperlukan.
+
+### Environment Variables
+
+| Variable           | Required                     | Description                                               |
+| ------------------ | ---------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`     | No                           | Lokasi SQLite database. Default: `file:./data/baileys.db` |
+| `GEMINI_API_KEY`   | Yes (current implementation) | API key Google Gemini                                     |
+| `GEMINI_MODEL`     | No                           | Model Gemini yang digunakan                               |
+| `GEMINI_HOST`      | No                           | Base URL Gemini custom                                    |
+| `SPREADSHEET_ID`   | No                           | ID file Google Spreadsheet                                |
+| `SPREADSHEET_NAME` | No                           | Nama file / konteks spreadsheet                           |
+| `SHEET_NAME`       | No                           | Nama tab/sheet di dalam spreadsheet                       |
+| `GCLOUD_KEY_PATH`  | No                           | Path ke file service account Google Cloud                 |
+| `ALLOWED_USER_IDS` | No                           | Daftar user ID WhatsApp yang diizinkan, dipisahkan koma   |
+
+### Notes
+
+- Implementasi saat ini masih membaca konfigurasi langsung dari environment variable.
+- Arsitektur target akan menambahkan config service dan GUI setup.
+- `SPREADSHEET_NAME` dan `SHEET_NAME` sengaja dibedakan karena konteksnya berbeda.
+
+## Getting Started
+
+### 1. Install dependencies
+
+```bash
+bun install
+```
+
+### 2. Setup environment
+
+```bash
+cp .env.example .env
+```
+
+Lalu isi konfigurasi yang dibutuhkan.
+
+### 3. Run the app
+
+```bash
+bun start
+```
+
+Atau:
+
+```bash
+bun run start
+```
+
+### 4. Scan WhatsApp QR
+
+Saat aplikasi berjalan, QR code akan muncul di terminal. Scan menggunakan akun WhatsApp yang ingin dipakai oleh bot.
+
+## Available Commands
+
+```bash
+bun start
+bun run start
+bun run typecheck
+bun run bundle
+bun run format
+```
+
+## Development Notes
+
+- `src/config.ts` saat ini masih memiliki side-effect saat import
+- `src/ai/ai.ts` masih terikat pada implementasi provider saat ini dan akan direfactor ke abstraction layer multi-provider
+- belum ada HTTP API internal untuk GUI Next.js
+- belum ada health endpoint, diagnostics endpoint, atau QR exposure ke UI
+
+## Roadmap Summary
+
+Prioritas pengembangan berikutnya:
+
+1. Refactor configuration platform
+2. Bangun abstraction layer AI multi-provider
+3. Tambahkan diagnostics dan service API internal
+4. Bangun admin GUI dengan Next.js
+5. Tambahkan security, observability, dan testing yang lebih lengkap
+
+Detail task tersedia di `docs/task.md`.
+
+## Code Quality
+
+Format kode:
+
+```bash
+bun run format
+```
+
+Type check:
+
+```bash
+bun run typecheck
+```
+
+## Security Considerations
+
+- Jangan commit file `.env`
+- Jangan commit service account key Google Cloud
+- Jangan log secret ke console
+- Batasi `ALLOWED_USER_IDS` bila bot tidak boleh diakses publik
+- Gunakan kredensial AI dan Google yang terpisah untuk environment development dan production
+
+## Contributing
+
+Untuk perubahan besar, mulai dari `docs/specs.md` agar arsitektur dan arah implementasi tetap konsisten.
+
+Checklist kontribusi yang disarankan:
+
+1. pahami konteks di `docs/specs.md`
+2. cek prioritas di `docs/task.md`
+3. ikuti struktur folder dan code style yang ada
+4. jalankan formatting dan typecheck sebelum commit
+
+## License
 
 MIT

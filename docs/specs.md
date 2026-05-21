@@ -2,17 +2,17 @@
 
 ## Project Overview
 
-Aplikasi ini adalah bot pencatatan keuangan berbasis WhatsApp yang menerima input berupa teks, gambar, atau kombinasi keduanya, lalu menggunakan Gemini AI untuk mengklasifikasikan apakah pesan tersebut merupakan transaksi pemasukan atau pengeluaran. Hasil klasifikasi kemudian disimpan ke database SQLite dan dapat disinkronkan ke Google Spreadsheet.
+**Renqu Bot** adalah aplikasi bot pencatatan keuangan berbasis WhatsApp yang menerima input berupa teks, gambar, atau kombinasi keduanya, lalu menggunakan AI inference provider-agnostic untuk mengklasifikasikan apakah pesan tersebut merupakan transaksi pemasukan atau pengeluaran. Hasil klasifikasi kemudian disimpan ke database SQLite dan dapat disinkronkan ke Google Spreadsheet.
 
 Arsitektur yang sudah berjalan saat ini adalah **backend monolith berbasis Bun + TypeScript** dengan integrasi utama berikut:
 
 - **WhatsApp channel** menggunakan Baileys
-- **AI inference** menggunakan Google Gemini
+- **AI inference** saat ini menggunakan Google Gemini, dengan target arsitektur multi-provider
 - **Database lokal** menggunakan SQLite via `Bun.SQL`
 - **Spreadsheet sink** menggunakan Google Sheets API
 - **Konfigurasi** berbasis environment variable (`Bun.env`)
 
-Target pengembangan berikutnya adalah menambahkan **GUI setup dan admin panel berbasis Next.js** untuk mengelola konfigurasi aplikasi seperti API key Gemini, Spreadsheet ID, nama file spreadsheet, nama sheet, allowed user IDs, credential Google Cloud, dan status sesi WhatsApp.
+Target pengembangan berikutnya adalah menambahkan **GUI setup dan admin panel berbasis Next.js** untuk mengelola konfigurasi aplikasi seperti provider AI aktif, API key per provider, model, base URL custom OpenAI-compatible, Spreadsheet ID, nama file spreadsheet, nama sheet, allowed user IDs, credential Google Cloud, dan status sesi WhatsApp.
 
 Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi saat ini, batasan teknis yang ada, serta arah arsitektur yang dituju.
 
@@ -26,7 +26,7 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
    - gambar
    - gambar + caption
 3. Menyimpan pesan mentah ke database
-4. Melakukan klasifikasi transaksi dengan Gemini AI
+4. Melakukan klasifikasi transaksi dengan AI provider yang dapat dipilih (Gemini, OpenAI, Anthropic, atau provider custom kompatibel OpenAI)
 5. Menyimpan hasil transaksi ke SQLite
 6. Mengirim balasan otomatis ke WhatsApp
 7. Menyimpan transaksi ke Google Spreadsheet jika konfigurasi tersedia
@@ -40,11 +40,13 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 3. Endpoint health dan diagnostics
 4. Tampilan QR WhatsApp melalui UI
 5. Status koneksi WhatsApp melalui UI
-6. Test koneksi Gemini, database, dan spreadsheet
+6. Test koneksi provider AI, database, dan spreadsheet
 7. Dashboard ringkas transaksi dan health sistem
 8. Secure config management dan audit trail
 9. Setup wizard multi-step
 10. Operational admin console
+11. Dukungan multi-provider AI inference
+12. Pemilihan model per provider dan custom base URL untuk provider OpenAI-compatible
 
 ## Tech Stack
 
@@ -53,11 +55,10 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 - **Runtime**: Bun
 - **Language**: TypeScript
 - **Messaging**: Baileys
-- **AI Model Provider**: Google Gemini via `@google/genai`
+- **AI Model Provider**: Provider-agnostic inference layer (Gemini, OpenAI, Anthropic, custom OpenAI-compatible)
 - **Database**: SQLite via `Bun.SQL`
 - **Spreadsheet Integration**: Google Sheets API via `googleapis`
 - **Formatting**: Prettier
-- **Git Hooks**: Husky + lint-staged
 
 ### Target Additional Stack
 
@@ -66,19 +67,17 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 - **Frontend Rendering**: App Router recommended
 - **State/Data Fetching**: fetch server/client sesuai kebutuhan
 - **UI Layer**: reusable form components dan status components
+- **AI SDK Layer**: adapter/provider abstraction untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider
 
 ## Folder & File Project Structure
 
 ### Current Structure
 
 ```text
-finance/
-├─ .github/
-├─ .husky/
-├─ data/
+renqubot/
 ├─ docs/
-│  ├─ task.md
-│  └─ specs.md
+│  ├─ specs.md
+│  └─ task.md
 ├─ scripts/
 ├─ src/
 │  ├─ ai/
@@ -100,6 +99,10 @@ finance/
 │  ├─ db.ts
 │  └─ index.ts
 ├─ .env.example
+├─ .gitignore
+├─ LICENSE
+├─ bun.lock
+├─ ecosystem.config.cjs
 ├─ package.json
 ├─ README.md
 └─ tsconfig.json
@@ -123,7 +126,7 @@ finance/
   - query helper transaksi dan ringkasan keuangan
 
 - `src/ai/ai.ts`
-  - integrasi Gemini
+  - integrasi AI inference
   - membangun context tambahan dari database
   - parsing hasil model
   - insert transaksi ke database
@@ -152,10 +155,11 @@ finance/
 ### Target Structure Recommendation
 
 ```text
-finance/
+renqubot/
 ├─ apps/
 │  └─ web/                    # Next.js admin GUI
 ├─ docs/
+├─ scripts/
 ├─ src/
 │  ├─ ai/
 │  ├─ api/                    # future HTTP API layer
@@ -183,7 +187,7 @@ flowchart TD
     G -- No --> I[Build Text Payload]
     H --> J[Build AI Payload]
     I --> J[Build AI Payload]
-    J --> K[Generate Gemini Response]
+    J --> K[Generate AI Provider Response]
     K --> L{Is Transaction?}
     L -- No --> M[Send Reply to WhatsApp]
     L -- Yes --> N[Insert Transaction to SQLite]
@@ -200,7 +204,7 @@ sequenceDiagram
     participant U as WhatsApp User
     participant W as WhatsApp Socket
     participant E as Message Handler
-    participant A as Gemini AI Service
+    participant A as AI Inference Service
     participant D as SQLite Database
     participant S as Google Spreadsheet
 
@@ -315,7 +319,7 @@ Bagian ini adalah acuan untuk frontend Next.js yang akan dibangun.
 1. `/setup`
    - wizard konfigurasi awal
 2. `/integrations`
-   - Gemini, Spreadsheet, Database diagnostics
+   - AI provider, Spreadsheet, Database diagnostics
 3. `/whatsapp`
    - status koneksi, QR code, reset session
 4. `/dashboard`
