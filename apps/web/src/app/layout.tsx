@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import { AppShell } from '@/components/layout/AppShell';
+import type { Metadata } from "next";
+import "./globals.css";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: 'Renqu Bot Admin',
-  description: 'Admin console untuk setup dan monitoring Renqu Bot.',
+  title: "Renqu Bot Admin",
+  description: "Admin console untuk setup dan monitoring Renqu Bot.",
 };
 
 export default function RootLayout({

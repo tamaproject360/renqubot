@@ -11,24 +11,39 @@ export const ALLOWED_USER_IDS = Bun.env.ALLOWED_USER_IDS
   ? Bun.env.ALLOWED_USER_IDS.split(',').map((id) => id.trim())
   : [];
 
-if (!GEMINI_API_KEY) {
-  console.error('Error: GEMINI_API_KEY is not set in environment variables');
-  process.exit(1);
+export interface IRuntimeConfigValidationResult {
+  valid: boolean;
+  missingFields: string[];
 }
 
-console.info('[CONFIG] Using Gemini Model:', GEMINI_MODEL);
-console.info(
-  `[CONFIG] ${GEMINI_HOST ? `Using Gemini Host: ${GEMINI_HOST}` : 'Using default Gemini Host'}`,
-);
+export const validateRuntimeConfig = (): IRuntimeConfigValidationResult => {
+  const missingFields: string[] = [];
 
-console.info(
-  '[CONFIG] Spreadsheet ID:',
-  SPREADSHEET_ID ? SPREADSHEET_ID : 'Not set',
-);
-console.info('[CONFIG] Spreadsheet Name:', SPREADSHEET_NAME);
+  if (!GEMINI_API_KEY) {
+    missingFields.push('GEMINI_API_KEY');
+  }
 
-if (ALLOWED_USER_IDS.length > 0) {
-  console.info('[CONFIG] Allowed User IDs:', ALLOWED_USER_IDS.join(', '));
-} else {
-  console.warn('[CONFIG] No restrictions on User IDs');
-}
+  return {
+    valid: missingFields.length === 0,
+    missingFields,
+  };
+};
+
+export const logRuntimeConfig = () => {
+  console.info('[CONFIG] Using Gemini Model:', GEMINI_MODEL);
+  console.info(
+    `[CONFIG] ${GEMINI_HOST ? `Using Gemini Host: ${GEMINI_HOST}` : 'Using default Gemini Host'}`,
+  );
+
+  console.info(
+    '[CONFIG] Spreadsheet ID:',
+    SPREADSHEET_ID ? SPREADSHEET_ID : 'Not set',
+  );
+  console.info('[CONFIG] Spreadsheet Name:', SPREADSHEET_NAME);
+
+  if (ALLOWED_USER_IDS.length > 0) {
+    console.info('[CONFIG] Allowed User IDs:', ALLOWED_USER_IDS.join(', '));
+  } else {
+    console.warn('[CONFIG] No restrictions on User IDs');
+  }
+};

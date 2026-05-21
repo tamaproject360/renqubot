@@ -74,4 +74,3 @@ Setelah menyelesaikan suatu tugas atau mencapai tonggak penting, selalu buat che
 ## Deskripsi
 Setiap perubahan struktur folder atau penambahan fitur wajib diikuti pembaruan docs/specs.md agar tetap konsisten dan update dengan kondisi proyek terbaru.
 
-

@@ -18,18 +18,18 @@ export interface IBotMessage {
 
 const systemInstructions = SYSTEM_PROMPT;
 
-if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY is not set in environment variables');
-}
-
-export const ai = new GoogleGenAI({
-  apiKey: GEMINI_API_KEY,
-  httpOptions: {
-    baseUrl: GEMINI_HOST,
-  },
-});
-
 export const generateResponse = async (msg: IBotMessage | string) => {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables');
+  }
+
+  const ai = new GoogleGenAI({
+    apiKey: GEMINI_API_KEY,
+    httpOptions: {
+      baseUrl: GEMINI_HOST,
+    },
+  });
+
   const contents: ContentListUnion = [];
 
   if (typeof msg === 'string') {

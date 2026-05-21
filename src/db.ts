@@ -47,6 +47,35 @@ export const startMigration = async () => {
     "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
     "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
   ) STRICT;`;
+
+  await sql`CREATE TABLE IF NOT EXISTS "schema_migrations" (
+    "version" TEXT PRIMARY KEY,
+    "applied_at" INTEGER DEFAULT (unixepoch()) NOT NULL
+  ) STRICT;`;
+
+  await sql`CREATE TABLE IF NOT EXISTS "app_config" (
+    "key" TEXT PRIMARY KEY,
+    "value" TEXT NOT NULL,
+    "source" TEXT DEFAULT 'db' NOT NULL,
+    "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
+    "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
+  ) STRICT;`;
+
+  await sql`CREATE TABLE IF NOT EXISTS "app_secrets_meta" (
+    "key" TEXT PRIMARY KEY,
+    "provider" TEXT NOT NULL,
+    "masked_value" TEXT NOT NULL,
+    "stored_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
+    "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
+  ) STRICT;`;
+
+  await sql`CREATE TABLE IF NOT EXISTS "app_audit_logs" (
+    "id" INTEGER PRIMARY KEY,
+    "actor" TEXT DEFAULT 'system' NOT NULL,
+    "action" TEXT NOT NULL,
+    "field" TEXT,
+    "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL
+  ) STRICT;`;
 };
 
 export interface ITransaction {

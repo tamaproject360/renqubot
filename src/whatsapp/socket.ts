@@ -50,7 +50,7 @@ export const startSocket = async () => {
   const logger = P({
     level: process.env.NODE_ENV === 'production' ? 'error' : 'warn',
     formatters: {
-      log(object) {
+      log(object: Record<string, unknown>) {
         const date = new Intl.DateTimeFormat('sv-SE', {
           year: 'numeric',
           month: '2-digit',

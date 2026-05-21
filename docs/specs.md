@@ -162,6 +162,10 @@ renqubot/
 ├─ scripts/
 ├─ services/
 │  └─ api/                    # Bun REST API backend terpisah
+│     ├─ src/contracts/       # kontrak response, config, system status
+│     ├─ src/lib/             # helper HTTP/API envelope
+│     ├─ src/modules/config/  # ConfigService dan penyimpanan config parsial
+│     └─ src/modules/system/  # SystemService status awal
 ├─ src/
 │  ├─ ai/
 │  ├─ api/                    # future HTTP API layer / legacy transition
@@ -249,6 +253,53 @@ bun run format
 - `bun run typecheck:backend` menjalankan typecheck khusus backend Bun service
 - `bun run format` menjalankan Prettier ke seluruh project
 - Saat ini belum ada script lint backend dan test terpisah
+
+## Backend API Contract
+
+Backend service baru berada di `services/api` dan berjalan di port `API_PORT` atau default `3001`. Seluruh response API menggunakan envelope konsisten:
+
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null
+}
+```
+
+Endpoint Phase 2 yang tersedia:
+
+1. `GET /health`
+   - status proses backend service.
+2. `GET /ready`
+   - readiness dasar service dan phase aktif.
+3. `GET /api/system/status`
+   - status sistem awal untuk dashboard admin.
+4. `GET /api/config`
+   - membaca konfigurasi tersimpan, status validasi, field yang belum lengkap, dan metadata secret yang sudah dimasking.
+5. `POST /api/config` dan `PATCH /api/config`
+   - menyimpan konfigurasi non-secret secara parsial untuk setup wizard.
+6. `PATCH /api/config/secrets`
+   - menyimpan secret provider AI dan hanya mengembalikan metadata masked value.
+7. `POST /api/config/google-service-account`
+   - menerima content JSON service account, menyimpan ke direktori terkontrol, lalu memperbarui `spreadsheet.serviceAccountPath`.
+
+## Configuration Platform
+
+Config platform Phase 2 menggunakan strategi hybrid awal:
+
+1. Legacy runtime bot masih dapat membaca environment variable melalui `src/config.ts`.
+2. Backend admin service menyimpan konfigurasi parsial di `data/config/app-config.json`.
+3. Secret provider AI disimpan terpisah di `data/config/app-secrets.json`, sedangkan response GUI hanya memakai `data/config/app-secrets-meta.json`.
+4. Audit perubahan konfigurasi ditulis ke `data/config/audit-log.jsonl`.
+5. Service account Google Cloud disimpan di `data/credentials/` dan path-nya disimpan sebagai konfigurasi spreadsheet.
+6. Direktori `data/config` dan `data/credentials` diabaikan Git karena berisi konfigurasi lokal dan secret.
+
+Schema database legacy juga sudah disiapkan untuk evolusi Config Platform:
+
+1. `schema_migrations`
+2. `app_config`
+3. `app_secrets_meta`
+4. `app_audit_logs`
 
 ## Code Style
 

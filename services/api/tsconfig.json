@@ -4,5 +4,6 @@
     "lib": ["ESNext"],
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
