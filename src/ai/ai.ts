@@ -9,6 +9,11 @@ import { logger } from '../logger';
 import { withRetry } from '../retry';
 import { saveToSheetDirect } from '../spreadsheet';
 import { GEMINI_API_KEY, GEMINI_HOST, GEMINI_MODEL } from '../config';
+import {
+  createInvalidAiFallback,
+  normalizeTransactionDate,
+  parseAiResponse,
+} from './validation';
 
 export interface IBotMessage {
   message?: string;
@@ -18,9 +23,17 @@ export interface IBotMessage {
   } | null;
 }
 
+export interface IGenerateResponseOptions {
+  sourceMessageId?: string;
+  sender?: string | null;
+}
+
 const systemInstructions = SYSTEM_PROMPT;
 
-export const generateResponse = async (msg: IBotMessage | string) => {
+export const generateResponse = async (
+  msg: IBotMessage | string,
+  options: IGenerateResponseOptions = {},
+) => {
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is not set in environment variables');
   }
@@ -112,26 +125,25 @@ ${latestExpense
     return null;
   }
 
-  const data = JSON.parse(result) as IAIResponse;
+  const validation = parseAiResponse(result);
 
-  const dateFormat = new Intl.DateTimeFormat('sv-SE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Jakarta',
-  });
+  if (!validation.data) {
+    logger.warn('AI response validation failed', {
+      module: 'AI',
+      error: validation.error,
+      sourceMessageId: options.sourceMessageId,
+    });
+
+    return createInvalidAiFallback();
+  }
+
+  const data = validation.data;
 
   if (data.is_transaction) {
     const transaction: ITransactionData = {
       amount: data.transaction_data?.amount || 0,
       category: data.transaction_data?.category ?? null,
-      date: data.transaction_data?.date
-        ? dateFormat.format(new Date(data.transaction_data.date))
-        : dateFormat.format(new Date()),
+      date: normalizeTransactionDate(data.transaction_data?.date),
       description: data.transaction_data?.description ?? null,
       type: data.transaction_data?.type ?? null,
       merchant_or_sender: data.transaction_data?.merchant_or_sender ?? null,
@@ -142,7 +154,25 @@ ${latestExpense
     >`INSERT INTO transactions ${sql({
       ...transaction,
       spreadsheet_sync_status: 'pending',
-    })} RETURNING id;`;
+      source_message_id: options.sourceMessageId ?? null,
+      sender: options.sender ?? null,
+      raw_ai_result: result,
+      confidence: data.confidence,
+      processed_at: new Date().toISOString(),
+    })} ON CONFLICT(source_message_id) DO NOTHING RETURNING id;`;
+
+    if (insertedTransactions.length === 0) {
+      logger.info('Duplicate transaction ignored', {
+        module: 'AI',
+        sourceMessageId: options.sourceMessageId,
+      });
+
+      return {
+        ...data,
+        reply_text: 'Transaksi dari pesan ini sudah pernah dicatat sebelumnya.',
+      } satisfies IAIResponse;
+    }
+
     const spreadsheetSynced = await saveToSheetDirect(data);
     const syncStatus = spreadsheetSynced ? 'synced' : 'pending';
     const transactionId = insertedTransactions[0]?.id;
@@ -155,6 +185,8 @@ ${latestExpense
       module: 'AI',
       transactionId,
       spreadsheetSyncStatus: syncStatus,
+      confidence: data.confidence,
+      sourceMessageId: options.sourceMessageId,
     });
   }
 

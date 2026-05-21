@@ -6,10 +6,14 @@ import {
   type WASocket,
 } from 'baileys';
 import { generateResponse, type IBotMessage } from '../ai/ai';
-import { sql } from '../db';
+import { hasTransactionBySourceMessageId, sql } from '../db';
 import { ALLOWED_USER_IDS } from '../config';
+import { logger } from '../logger';
 
 const allowedIds = ALLOWED_USER_IDS;
+const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const maxImageSizeBytes = 20 * 1024 * 1024;
+
 export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
   const keyId = message.key.id;
   const remoteJid = message.key.remoteJid;
@@ -22,9 +26,11 @@ export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
 
   if (message.key.fromMe) return;
 
+  const sourceMessageId = `${remoteJid}-${keyId}`;
+
   await Promise.all([
     saveMessage(message, keyId, remoteJid),
-    handleBotMessage(sock, message, remoteJid, phoneNumber),
+    handleBotMessage(sock, message, remoteJid, phoneNumber, sourceMessageId),
   ]);
 };
 
@@ -52,6 +58,7 @@ const handleBotMessage = async (
   message: WAMessage,
   remoteJid: string,
   phoneNumber: string | null,
+  sourceMessageId: string,
 ) => {
   const msg = normalizeMessageContent(message.message);
 
@@ -60,19 +67,34 @@ const handleBotMessage = async (
     allowedIds.length > 0 &&
     !allowedIds.includes(phoneNumber)
   ) {
-    console.log(`User ID ${phoneNumber} tidak diizinkan.`);
+    logger.warn('Unauthorized WhatsApp sender ignored', {
+      module: 'MessageUpsert',
+      sender: phoneNumber,
+    });
+    return;
+  }
+
+  if (await hasTransactionBySourceMessageId(sourceMessageId)) {
+    await sock.sendMessage(
+      remoteJid,
+      { text: 'Transaksi dari pesan ini sudah pernah dicatat sebelumnya.' },
+      { quoted: message },
+    );
     return;
   }
 
   await sock.sendPresenceUpdate('available', remoteJid);
 
-  Bun.sleep(1000);
+  await Bun.sleep(1000);
 
   let bot: IBotMessage | null = null;
   let response: string | null = null;
 
   if (!msg) {
-    console.log('Konten pesan kosong');
+    logger.warn('Empty WhatsApp message content', {
+      module: 'MessageUpsert',
+      sourceMessageId,
+    });
     return;
   }
 
@@ -90,7 +112,10 @@ const handleBotMessage = async (
 
   if (msg.imageMessage) {
     try {
-      console.log('Pesan gambar diterima');
+      logger.info('Image message received', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+      });
 
       const buffer = await downloadMediaMessage(
         message,
@@ -104,6 +129,20 @@ const handleBotMessage = async (
 
       const mimeType = msg.imageMessage.mimetype || 'image/jpeg';
 
+      if (!allowedImageMimeTypes.has(mimeType)) {
+        response =
+          'Maaf, format gambar belum didukung. Kirim gambar JPEG, PNG, atau WebP.';
+      } else if (buffer.length > maxImageSizeBytes) {
+        response =
+          'Maaf, ukuran gambar terlalu besar. Maksimal gambar yang bisa diproses adalah 20 MB.';
+      }
+
+      if (response) {
+        await sock.readMessages([message.key]);
+        await sock.sendMessage(remoteJid, { text: response }, { quoted: message });
+        return;
+      }
+
       bot = {
         image: {
           data: buffer.toString('base64'),
@@ -112,14 +151,18 @@ const handleBotMessage = async (
         message: msg.imageMessage.caption || undefined,
       };
     } catch (error) {
-      console.error('Gagal mengunduh pesan gambar:', error);
+      logger.error('Failed to download image message', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       response = 'Maaf, terjadi kesalahan saat memproses gambar Anda.';
     }
   }
 
   await sock.readMessages([message.key]);
 
-  Bun.sleep(1000);
+  await Bun.sleep(1000);
 
   if (response) {
     await sock.sendMessage(remoteJid, { text: response }, { quoted: message });
@@ -128,9 +171,15 @@ const handleBotMessage = async (
 
   if (bot) {
     try {
-      const botResponse = await generateResponse(bot);
+      const botResponse = await generateResponse(bot, {
+        sourceMessageId,
+        sender: phoneNumber,
+      });
       if (!botResponse) {
-        console.log('Tidak ada respons dari bot');
+        logger.warn('No bot response generated', {
+          module: 'MessageUpsert',
+          sourceMessageId,
+        });
         await sock.sendMessage(
           remoteJid,
           { text: 'Maaf, saya tidak dapat memberikan respons saat ini.' },
@@ -145,7 +194,11 @@ const handleBotMessage = async (
         { quoted: message },
       );
     } catch (error) {
-      console.error('Gagal menghasilkan respons bot:', error);
+      logger.error('Failed to generate bot response', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       await sock.sendMessage(
         remoteJid,
         { text: 'Maaf, terjadi kesalahan saat memproses permintaan Anda.' },

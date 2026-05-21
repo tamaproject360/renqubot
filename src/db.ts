@@ -60,6 +60,30 @@ export const startMigration = async () => {
     await sql`ALTER TABLE transactions ADD COLUMN spreadsheet_sync_status TEXT DEFAULT 'pending';`;
   }
 
+  if (
+    !transactionColumns.some((column) => column.name === 'source_message_id')
+  ) {
+    await sql`ALTER TABLE transactions ADD COLUMN source_message_id TEXT;`;
+  }
+
+  if (!transactionColumns.some((column) => column.name === 'sender')) {
+    await sql`ALTER TABLE transactions ADD COLUMN sender TEXT;`;
+  }
+
+  if (!transactionColumns.some((column) => column.name === 'raw_ai_result')) {
+    await sql`ALTER TABLE transactions ADD COLUMN raw_ai_result TEXT;`;
+  }
+
+  if (!transactionColumns.some((column) => column.name === 'confidence')) {
+    await sql`ALTER TABLE transactions ADD COLUMN confidence REAL DEFAULT 0;`;
+  }
+
+  if (!transactionColumns.some((column) => column.name === 'processed_at')) {
+    await sql`ALTER TABLE transactions ADD COLUMN processed_at TEXT;`;
+  }
+
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source_message_id ON transactions(source_message_id);`;
+
   await sql`CREATE TABLE IF NOT EXISTS "schema_migrations" (
     "version" TEXT PRIMARY KEY,
     "applied_at" INTEGER DEFAULT (unixepoch()) NOT NULL
@@ -109,9 +133,22 @@ export interface ITransaction {
   description: string | null;
   merchant_or_sender: string | null;
   spreadsheet_sync_status?: string | null;
+  source_message_id?: string | null;
+  sender?: string | null;
+  raw_ai_result?: string | null;
+  confidence?: number | null;
+  processed_at?: string | null;
   created_at: number;
   updated_at: number;
 }
+
+export const hasTransactionBySourceMessageId = async (sourceMessageId: string) => {
+  const rows = await sql<{ id: number }[]>`
+    SELECT id FROM transactions WHERE source_message_id = ${sourceMessageId} LIMIT 1;
+  `;
+
+  return rows.length > 0;
+};
 
 export const getTotalBalance = async () => {
   const incomeResult =

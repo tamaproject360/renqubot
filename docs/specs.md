@@ -347,6 +347,18 @@ Phase 6 menambahkan fondasi reliability berikut:
    - `GET /api/spreadsheet-sync/jobs`
    - `POST /api/spreadsheet-sync/retry`
 
+## Data & AI Quality
+
+Phase 7 dan Phase 8 menambahkan guard domain berikut pada runtime bot legacy dan backend API:
+
+1. Tabel `transactions` memiliki metadata `source_message_id`, `sender`, `raw_ai_result`, `confidence`, dan `processed_at`.
+2. `source_message_id` diberi unique index agar pesan WhatsApp yang sama tidak menghasilkan transaksi ganda.
+3. Tanggal transaksi dinormalisasi ke format `YYYY-MM-DD` sebelum disimpan dan sebelum disinkronkan ke Spreadsheet.
+4. Output JSON AI divalidasi sebelum diproses; field wajib transaksi adalah `type`, `amount`, dan response utama `is_transaction` + `reply_text`.
+5. Response AI invalid atau JSON rusak tidak disimpan sebagai transaksi dan dikembalikan sebagai fallback reply aman.
+6. Confidence score disimpan sebagai angka `0..1`; jika model tidak mengirim confidence, runtime memakai default konservatif.
+7. Payload gambar dibatasi ke MIME `image/jpeg`, `image/png`, atau `image/webp` dengan ukuran maksimum 20 MB sebelum diproses model.
+
 ## Configuration Platform
 
 Config platform Phase 2 menggunakan strategi hybrid awal:

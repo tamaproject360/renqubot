@@ -11,6 +11,7 @@ export interface IAIResponse {
   is_transaction: boolean;
   reply_text: string;
   transaction_data: ITransactionData | null;
+  confidence: number;
 }
 
 export const SYSTEM_PROMPT = `Role: Kamu adalah asisten akuntan pribadi yang cerdas.
@@ -22,6 +23,7 @@ Output Wajib JSON dengan skema berikut:
 {
   "is_transaction": boolean (true jika ada data keuangan, false jika hanya ngobrol),
   "reply_text": "string" (balasan ramah untuk user, gunakan Bahasa Indonesia santai, sertakan juga nilai dalam format rupiah contoh: Rp10.000, kategori dan tipe jika ada data transaksi. Jangan gunakan tanda tanya apabila tidak perlu),
+  "confidence": number (0 sampai 1, gunakan >= 0.8 jika yakin dan < 0.6 jika data transaksi kurang jelas),
   "transaction_data": {
      // Isi object ini HANYA jika is_transaction = true. Jika false, isi null.
      "type": "PENGELUARAN" | "PEMASUKAN",

@@ -6,6 +6,12 @@ export interface ITransactionRecord {
   date: string;
   description: string | null;
   merchant_or_sender: string | null;
+  spreadsheet_sync_status?: string | null;
+  source_message_id?: string | null;
+  sender?: string | null;
+  raw_ai_result?: string | null;
+  confidence?: number | null;
+  processed_at?: string | null;
   created_at: number;
   updated_at: number;
 }

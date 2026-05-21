@@ -72,5 +72,41 @@ export class TransactionService {
       "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
       "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
     ) STRICT;`;
+
+    const transactionColumns = await sql<{ name: string }[]>`
+      PRAGMA table_info('transactions');
+    `;
+
+    if (
+      !transactionColumns.some(
+        (column) => column.name === 'spreadsheet_sync_status',
+      )
+    ) {
+      await sql`ALTER TABLE transactions ADD COLUMN spreadsheet_sync_status TEXT DEFAULT 'pending';`;
+    }
+
+    if (
+      !transactionColumns.some((column) => column.name === 'source_message_id')
+    ) {
+      await sql`ALTER TABLE transactions ADD COLUMN source_message_id TEXT;`;
+    }
+
+    if (!transactionColumns.some((column) => column.name === 'sender')) {
+      await sql`ALTER TABLE transactions ADD COLUMN sender TEXT;`;
+    }
+
+    if (!transactionColumns.some((column) => column.name === 'raw_ai_result')) {
+      await sql`ALTER TABLE transactions ADD COLUMN raw_ai_result TEXT;`;
+    }
+
+    if (!transactionColumns.some((column) => column.name === 'confidence')) {
+      await sql`ALTER TABLE transactions ADD COLUMN confidence REAL DEFAULT 0;`;
+    }
+
+    if (!transactionColumns.some((column) => column.name === 'processed_at')) {
+      await sql`ALTER TABLE transactions ADD COLUMN processed_at TEXT;`;
+    }
+
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source_message_id ON transactions(source_message_id);`;
   }
 }
