@@ -1,0 +1,171 @@
+# Gap Analysis dan Tasklist Pengembangan
+
+## Ringkasan Gap Analysis
+
+Aplikasi saat ini sudah memiliki fondasi inti untuk menerima pesan WhatsApp, memproses teks/gambar dengan Gemini, menyimpan transaksi ke SQLite, dan menulis ke Google Sheets. Namun, untuk menuju tahap berikutnya berupa pengalaman setup berbasis GUI dengan Next.js serta kesiapan produksi yang lebih baik, masih ada gap besar pada area arsitektur konfigurasi, API/service boundary, observability, keamanan kredensial, operasional, dan pengalaman pengguna admin.
+
+Gap terbesar ada pada coupling yang sangat erat antara runtime bot dengan environment variable dan side-effect saat bootstrap. Konfigurasi dibaca langsung dari `Bun.env`, validasi dilakukan saat import module, dan proses akan keluar (`process.exit`) bila env tertentu tidak tersedia. Pola ini mempersulit implementasi panel konfigurasi GUI, hot reload konfigurasi, health check, partial setup, staged onboarding, dan testing terisolasi.
+
+Di sisi integrasi, AI, database, WhatsApp, dan spreadsheet masih terhubung secara langsung tanpa abstraction layer yang jelas. Belum ada service API internal yang bisa dikonsumsi frontend untuk membaca status aplikasi, mengelola konfigurasi, menginisiasi login WhatsApp, melihat QR code, menguji koneksi Gemini/Spreadsheet, maupun memantau transaksi. Hal ini membuat penambahan frontend Next.js tidak cukup hanya pada layer UI, tetapi perlu evolusi arsitektur backend agar lebih modular dan operasional.
+
+Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admin GUI, audit trail konfigurasi, secret storage yang aman, status runtime yang terstruktur, background task management, serta deployment topology yang jelas antara bot runtime dan panel admin. Dengan demikian, langkah berikutnya sebaiknya tidak langsung lompat ke implementasi UI, tetapi dimulai dari penataan fondasi arsitektur agar frontend konfigurasi benar-benar reliable, secure, dan maintainable.
+
+## Area Gap Utama
+
+1. **Configuration Management**
+   - Konfigurasi masih bergantung penuh pada `.env` dan dibaca saat import module.
+   - Belum ada config schema, config persistence, masking secret, ataupun validasi per field.
+   - Belum ada konsep setup state seperti `unconfigured`, `partial`, `ready`, `error`.
+
+2. **Backend Service Boundary**
+   - Belum ada HTTP server/API untuk dipakai frontend Next.js.
+   - Logic domain masih tersebar langsung di module runtime.
+   - Tidak ada endpoint health, readiness, diagnostics, atau test connection.
+
+3. **Frontend Readiness**
+   - Belum ada app shell admin, setup wizard, dashboard status, atau form konfigurasi.
+   - Belum ada design system, UX onboarding, dan struktur modul frontend.
+
+4. **WhatsApp Session Operability**
+   - QR hanya dicetak ke terminal.
+   - Belum ada cara expose QR, connection status, reset session, reconnect, atau session lifecycle ke UI.
+
+5. **Security & Secret Handling**
+   - Secret masih berupa env polos tanpa strategi masking, rotation, encryption at rest, atau RBAC admin.
+   - Belum ada proteksi untuk file service account dan endpoint konfigurasi.
+
+6. **Observability & Reliability**
+   - Logging masih berbasis console dan belum terstruktur end-to-end.
+   - Belum ada metrics, error classification, retry policy terukur, dead-letter handling, atau alerting.
+
+7. **Data & Domain Model**
+   - Tabel transaksi masih minimal, belum ada audit log, config table, app_state, atau job table.
+   - Belum ada dukungan metadata transaksi, source trace, correction flow, atau deduplication strategy.
+
+8. **AI Quality & Control**
+   - Belum ada prompt versioning, confidence score, fallback flow, human review, atau evaluasi akurasi.
+   - Belum ada pembatasan prompt cost, model failover, dan test dataset.
+
+9. **Testing & Delivery**
+   - Belum ada test automation memadai untuk domain logic, API, atau GUI flow.
+   - Belum ada lint script, CI pipeline kualitas, atau deployment blueprint untuk multi-service.
+
+## Tasklist Pengembangan
+
+|  No | Tugas                                                                                                                                                    | Status | Prioritas | Phase                                    |
+| --: | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------- | ---------------------------------------- |
+|   1 | Susun target arsitektur tahap berikutnya: pisahkan bot runtime, config service, dan admin frontend Next.js dalam dokumen arsitektur singkat              | TODO   | Critical  | Phase 1 - Architecture Foundation        |
+|   2 | Definisikan bounded context utama: configuration, whatsapp session, transaction processing, AI inference, spreadsheet sync, admin management             | TODO   | High      | Phase 1 - Architecture Foundation        |
+|   3 | Tetapkan deployment topology untuk mode lokal dan production, termasuk apakah frontend dan backend berjalan dalam satu process atau multi-service        | TODO   | High      | Phase 1 - Architecture Foundation        |
+|   4 | Buat keputusan arsitektural untuk tetap memakai Bun di backend service atau menambahkan runtime Node khusus frontend Next.js                             | TODO   | High      | Phase 1 - Architecture Foundation        |
+|   5 | Rancang kontrak integrasi antara Next.js GUI dengan backend internal melalui REST API yang stabil dan terversi                                           | TODO   | Critical  | Phase 1 - Architecture Foundation        |
+|   6 | Inventarisasi seluruh konfigurasi aplikasi beserta tipe data, default value, sensitivitas, sumber, dan aturan validasinya                                | TODO   | Critical  | Phase 1 - Architecture Foundation        |
+|   7 | Definisikan state machine setup aplikasi: uninitialized, config_saved, credentials_uploaded, whatsapp_pending, ready, degraded                           | TODO   | High      | Phase 1 - Architecture Foundation        |
+|   8 | Rancang strategi penyimpanan konfigurasi yang mendukung GUI: file config, DB config table, atau hybrid dengan env override                               | TODO   | Critical  | Phase 1 - Architecture Foundation        |
+|   9 | Buat schema validasi konfigurasi terpusat untuk Gemini, Google Sheets, database, whitelist user, dan path credential                                     | TODO   | Critical  | Phase 2 - Config Platform                |
+|  10 | Refactor pembacaan config agar tidak melakukan side-effect fatal saat import module                                                                      | TODO   | Critical  | Phase 2 - Config Platform                |
+|  11 | Ubah bootstrap aplikasi agar validasi config dilakukan terkontrol pada startup pipeline, bukan saat import                                               | TODO   | Critical  | Phase 2 - Config Platform                |
+|  12 | Tambahkan mekanisme masking secret untuk API key dan credential path ketika ditampilkan ke GUI/log                                                       | TODO   | High      | Phase 2 - Config Platform                |
+|  13 | Tambahkan kemampuan menyimpan konfigurasi secara parsial agar setup wizard bisa berjalan bertahap                                                        | TODO   | High      | Phase 2 - Config Platform                |
+|  14 | Tambahkan capability test connection untuk Gemini API dari backend tanpa menjalankan seluruh bot                                                         | TODO   | Critical  | Phase 2 - Config Platform                |
+|  15 | Tambahkan capability test akses Google Spreadsheet dan validasi service account dari backend                                                             | TODO   | Critical  | Phase 2 - Config Platform                |
+|  16 | Tambahkan capability test koneksi SQLite/database path dan writable data directory                                                                       | TODO   | High      | Phase 2 - Config Platform                |
+|  17 | Buat endpoint untuk membaca status konfigurasi lengkap beserta field yang belum valid                                                                    | TODO   | Critical  | Phase 2 - Config Platform                |
+|  18 | Buat endpoint untuk menyimpan konfigurasi umum non-secret dari GUI                                                                                       | TODO   | Critical  | Phase 2 - Config Platform                |
+|  19 | Buat endpoint khusus update secret seperti Gemini API key dengan write path yang aman                                                                    | TODO   | Critical  | Phase 2 - Config Platform                |
+|  20 | Buat endpoint upload service account Google Cloud dan simpan file secara aman di direktori terkontrol                                                    | TODO   | Critical  | Phase 2 - Config Platform                |
+|  21 | Tambahkan audit trail perubahan konfigurasi: siapa mengubah, kapan, field apa yang berubah                                                               | TODO   | High      | Phase 2 - Config Platform                |
+|  22 | Tambahkan tabel `app_config` untuk konfigurasi persisten non-secret                                                                                      | TODO   | High      | Phase 2 - Config Platform                |
+|  23 | Tambahkan tabel `app_secrets_meta` atau metadata secret tanpa menyimpan plain secret di response                                                         | TODO   | High      | Phase 2 - Config Platform                |
+|  24 | Tambahkan tabel `app_audit_logs` untuk perubahan konfigurasi, reset session, dan aksi admin                                                              | TODO   | High      | Phase 2 - Config Platform                |
+|  25 | Tambahkan migrasi schema terstruktur dan versioning migrasi untuk evolusi data berikutnya                                                                | TODO   | High      | Phase 2 - Config Platform                |
+|  26 | Rancang abstraction layer `ConfigService` agar modul lain tidak bergantung langsung ke `Bun.env`                                                         | TODO   | Critical  | Phase 2 - Config Platform                |
+|  27 | Rancang abstraction layer `HealthService` untuk agregasi health database, AI, spreadsheet, dan WhatsApp                                                  | TODO   | High      | Phase 3 - Service API                    |
+|  28 | Tambahkan HTTP server internal untuk API status, konfigurasi, dan session control                                                                        | TODO   | Critical  | Phase 3 - Service API                    |
+|  29 | Buat endpoint `/health` dan `/ready` dengan status mesin yang bisa dipakai GUI dan deployment                                                            | TODO   | Critical  | Phase 3 - Service API                    |
+|  30 | Buat endpoint `/api/config` untuk GET status config dan POST/PATCH pembaruan config                                                                      | TODO   | Critical  | Phase 3 - Service API                    |
+|  31 | Buat endpoint `/api/diagnostics/gemini` untuk tes koneksi model dan credential                                                                           | TODO   | High      | Phase 3 - Service API                    |
+|  32 | Buat endpoint `/api/diagnostics/spreadsheet` untuk tes akses spreadsheet dan penulisan sampel opsional                                                   | TODO   | High      | Phase 3 - Service API                    |
+|  33 | Buat endpoint `/api/diagnostics/database` untuk tes health DB dan hasil pemeriksaan path                                                                 | TODO   | Medium    | Phase 3 - Service API                    |
+|  34 | Buat endpoint `/api/whatsapp/status` untuk connection state, last error, dan session info                                                                | TODO   | Critical  | Phase 3 - Service API                    |
+|  35 | Buat endpoint `/api/whatsapp/qr` untuk expose QR code ke frontend secara aman dan time-bound                                                             | TODO   | Critical  | Phase 3 - Service API                    |
+|  36 | Buat endpoint `/api/whatsapp/reset-session` untuk clear session dengan guard/confirmation                                                                | TODO   | High      | Phase 3 - Service API                    |
+|  37 | Buat endpoint `/api/transactions` untuk listing transaksi yang bisa dipakai dashboard awal                                                               | TODO   | Medium    | Phase 3 - Service API                    |
+|  38 | Buat endpoint `/api/summary` untuk saldo, pemasukan, pengeluaran, dan statistik ringkas                                                                  | TODO   | Medium    | Phase 3 - Service API                    |
+|  39 | Terapkan response envelope standar untuk sukses/gagal/validation error pada seluruh API                                                                  | TODO   | High      | Phase 3 - Service API                    |
+|  40 | Tambahkan error taxonomy dan mapping HTTP status untuk validation, auth, integration, dan runtime error                                                  | TODO   | High      | Phase 3 - Service API                    |
+|  41 | Refactor modul AI ke service terpisah agar dapat dipanggil dari runtime dan diagnostics endpoint                                                         | TODO   | High      | Phase 3 - Service API                    |
+|  42 | Refactor modul spreadsheet ke service terpisah dengan operasi test, append, dan metadata access                                                          | TODO   | High      | Phase 3 - Service API                    |
+|  43 | Refactor modul WhatsApp ke manager/service yang mempublikasikan state ke API layer                                                                       | TODO   | Critical  | Phase 3 - Service API                    |
+|  44 | Simpan state QR terakhir dan connection status dalam memory store/event bus yang bisa di-query frontend                                                  | TODO   | High      | Phase 3 - Service API                    |
+|  45 | Rancang event bus internal untuk menyebarkan perubahan status bot ke layer API dan GUI                                                                   | TODO   | Medium    | Phase 3 - Service API                    |
+|  46 | Buat fondasi project Next.js untuk admin GUI pada folder terpisah yang jelas dari runtime bot                                                            | TODO   | Critical  | Phase 4 - Admin Frontend                 |
+|  47 | Tentukan apakah Next.js memakai App Router, TypeScript strict, dan styling approach yang konsisten                                                       | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  48 | Rancang layout dashboard admin dengan navigasi: Setup, Integrations, WhatsApp, Transactions, System                                                      | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  49 | Buat halaman setup wizard multi-step untuk General Config, Gemini, Google Sheets, WhatsApp, Review                                                       | TODO   | Critical  | Phase 4 - Admin Frontend                 |
+|  50 | Buat form GUI untuk konfigurasi Gemini API key, host, dan model dengan validasi client/server                                                            | TODO   | Critical  | Phase 4 - Admin Frontend                 |
+|  51 | Buat form GUI untuk konfigurasi spreadsheet ID, nama file spreadsheet, nama sheet, dan upload service account                                            | TODO   | Critical  | Phase 4 - Admin Frontend                 |
+|  52 | Buat form GUI untuk allowed user IDs dengan UX tag input yang mudah dikelola                                                                             | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  53 | Buat form GUI untuk database path dan opsi direktori data bila memang ingin dibuat configurable                                                          | TODO   | Medium    | Phase 4 - Admin Frontend                 |
+|  54 | Buat halaman status integrasi yang menampilkan hasil test Gemini, DB, Spreadsheet, dan WhatsApp                                                          | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  55 | Buat halaman WhatsApp session untuk menampilkan QR code, status koneksi, waktu login, dan aksi reset                                                     | TODO   | Critical  | Phase 4 - Admin Frontend                 |
+|  56 | Tambahkan polling atau realtime update untuk perubahan status koneksi WhatsApp                                                                           | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  57 | Buat halaman dashboard ringkas untuk saldo, statistik transaksi, dan health komponen utama                                                               | TODO   | Medium    | Phase 4 - Admin Frontend                 |
+|  58 | Tambahkan UX guard untuk unsaved changes, loading state, retry state, dan error explanation yang jelas                                                   | TODO   | High      | Phase 4 - Admin Frontend                 |
+|  59 | Tambahkan struktur design system sederhana: form field, secret input, status badge, card, stepper, dialog                                                | TODO   | Medium    | Phase 4 - Admin Frontend                 |
+|  60 | Pastikan frontend memiliki separation antara server actions/fetcher dengan presentational components                                                     | TODO   | Medium    | Phase 4 - Admin Frontend                 |
+|  61 | Implementasikan autentikasi admin minimal untuk GUI setup sebelum fitur config dibuka ke publik                                                          | TODO   | Critical  | Phase 5 - Security & Access Control      |
+|  62 | Pilih mekanisme auth admin: local password bootstrap, basic auth reverse proxy, atau session-based login                                                 | TODO   | Critical  | Phase 5 - Security & Access Control      |
+|  63 | Tambahkan mekanisme bootstrap admin pertama kali untuk instance baru                                                                                     | TODO   | High      | Phase 5 - Security & Access Control      |
+|  64 | Batasi endpoint konfigurasi dan reset session hanya untuk admin terautentikasi                                                                           | TODO   | Critical  | Phase 5 - Security & Access Control      |
+|  65 | Tambahkan CSRF protection atau pengamanan setara sesuai strategi auth yang dipilih                                                                       | TODO   | High      | Phase 5 - Security & Access Control      |
+|  66 | Tambahkan rate limiting pada endpoint sensitif seperti save config, test connection, dan reset session                                                   | TODO   | High      | Phase 5 - Security & Access Control      |
+|  67 | Simpan file service account di lokasi non-public dengan permission yang ketat                                                                            | TODO   | Critical  | Phase 5 - Security & Access Control      |
+|  68 | Evaluasi kebutuhan enkripsi secret at rest untuk API key dan path credential                                                                             | TODO   | High      | Phase 5 - Security & Access Control      |
+|  69 | Tambahkan sanitasi output log agar secret dan payload sensitif tidak tercetak ke console                                                                 | TODO   | High      | Phase 5 - Security & Access Control      |
+|  70 | Tambahkan konfirmasi dan guard rails untuk aksi destruktif seperti clear session WhatsApp                                                                | TODO   | Medium    | Phase 5 - Security & Access Control      |
+|  71 | Refactor logging menjadi structured logging yang konsisten antar module                                                                                  | TODO   | High      | Phase 6 - Observability & Reliability    |
+|  72 | Tambahkan correlation id untuk request API dan operasi background                                                                                        | TODO   | Medium    | Phase 6 - Observability & Reliability    |
+|  73 | Tambahkan health aggregation yang membedakan healthy, degraded, dan unhealthy                                                                            | TODO   | High      | Phase 6 - Observability & Reliability    |
+|  74 | Tambahkan retry policy yang lebih eksplisit untuk call Gemini dan Google Sheets                                                                          | TODO   | High      | Phase 6 - Observability & Reliability    |
+|  75 | Tambahkan circuit breaker atau cooldown sederhana untuk integrasi yang gagal berulang                                                                    | TODO   | Medium    | Phase 6 - Observability & Reliability    |
+|  76 | Tambahkan klasifikasi error untuk message processing agar lebih mudah diobservasi                                                                        | TODO   | Medium    | Phase 6 - Observability & Reliability    |
+|  77 | Tambahkan event log untuk perubahan state WhatsApp connection dan QR refresh                                                                             | TODO   | Medium    | Phase 6 - Observability & Reliability    |
+|  78 | Tambahkan metrik dasar: jumlah pesan diproses, transaksi tersimpan, error AI, error spreadsheet                                                          | TODO   | Medium    | Phase 6 - Observability & Reliability    |
+|  79 | Tambahkan fallback mode ketika spreadsheet gagal tetapi transaksi DB tetap tersimpan dan ditandai perlu sync                                             | TODO   | Critical  | Phase 6 - Observability & Reliability    |
+|  80 | Tambahkan job retry/sync ulang untuk transaksi yang gagal dikirim ke spreadsheet                                                                         | TODO   | High      | Phase 6 - Observability & Reliability    |
+|  81 | Tambahkan kolom status sinkronisasi spreadsheet pada tabel transaksi atau tabel job terpisah                                                             | TODO   | High      | Phase 6 - Observability & Reliability    |
+|  82 | Tambahkan deduplication strategy untuk pesan/transaction agar insert ganda bisa dicegah                                                                  | TODO   | High      | Phase 7 - Data & Domain Evolution        |
+|  83 | Evaluasi normalisasi format tanggal transaksi agar konsisten untuk query harian dan integrasi sheet                                                      | TODO   | High      | Phase 7 - Data & Domain Evolution        |
+|  84 | Tambahkan metadata transaksi: source message id, sender, raw classification result, confidence, processed_at                                             | TODO   | High      | Phase 7 - Data & Domain Evolution        |
+|  85 | Tambahkan audit trail edit/koreksi transaksi manual di masa depan                                                                                        | TODO   | Medium    | Phase 7 - Data & Domain Evolution        |
+|  86 | Tambahkan repository/service layer untuk transaksi agar query tidak tersebar langsung di module lain                                                     | TODO   | Medium    | Phase 7 - Data & Domain Evolution        |
+|  87 | Tambahkan dashboard query untuk transaksi terbaru, saldo, kategori, dan tren harian                                                                      | TODO   | Medium    | Phase 7 - Data & Domain Evolution        |
+|  88 | Siapkan fondasi fitur koreksi transaksi dari GUI bila roadmap mengarah ke sana                                                                           | TODO   | Low       | Phase 7 - Data & Domain Evolution        |
+|  89 | Lakukan prompt hardening dan versioning untuk klasifikasi transaksi                                                                                      | TODO   | High      | Phase 8 - AI Quality                     |
+|  90 | Tambahkan schema validation terhadap JSON output model sebelum diproses lebih lanjut                                                                     | TODO   | Critical  | Phase 8 - AI Quality                     |
+|  91 | Tambahkan confidence score atau heuristic validation untuk menandai hasil AI yang meragukan                                                              | TODO   | High      | Phase 8 - AI Quality                     |
+|  92 | Tambahkan fallback response saat output model tidak valid JSON atau field wajib hilang                                                                   | TODO   | High      | Phase 8 - AI Quality                     |
+|  93 | Buat dataset uji contoh pesan teks/gambar untuk evaluasi kualitas ekstraksi transaksi                                                                    | TODO   | High      | Phase 8 - AI Quality                     |
+|  94 | Tambahkan mekanisme evaluasi regresi prompt/model sebelum deploy perubahan AI                                                                            | TODO   | Medium    | Phase 8 - AI Quality                     |
+|  95 | Tambahkan batasan ukuran payload gambar dan validasi mime type yang lebih tegas                                                                          | TODO   | High      | Phase 8 - AI Quality                     |
+|  96 | Tambahkan strategy cost control: limit model call, timeout, dan observasi penggunaan                                                                     | TODO   | Medium    | Phase 8 - AI Quality                     |
+|  97 | Tambahkan unit test untuk config parser, validation schema, dan helper utilitas                                                                          | TODO   | High      | Phase 9 - Testing & Delivery             |
+|  98 | Tambahkan integration test untuk API konfigurasi, diagnostics, dan WhatsApp status endpoint                                                              | TODO   | High      | Phase 9 - Testing & Delivery             |
+|  99 | Tambahkan test untuk alur fallback ketika spreadsheet gagal                                                                                              | TODO   | High      | Phase 9 - Testing & Delivery             |
+| 100 | Tambahkan test untuk parsing allowed user IDs dan state setup wizard                                                                                     | TODO   | Medium    | Phase 9 - Testing & Delivery             |
+| 101 | Tambahkan frontend test untuk setup wizard, form validation, dan session page                                                                            | TODO   | Medium    | Phase 9 - Testing & Delivery             |
+| 102 | Lengkapi script kualitas proyek: lint, typecheck, format check, dan test                                                                                 | TODO   | Critical  | Phase 9 - Testing & Delivery             |
+| 103 | Tambahkan CI pipeline untuk install, typecheck, lint, test, dan build backend/frontend                                                                   | TODO   | High      | Phase 9 - Testing & Delivery             |
+| 104 | Tambahkan dokumentasi environment dan deployment untuk local dev, staging, production                                                                    | TODO   | High      | Phase 9 - Testing & Delivery             |
+| 105 | Tambahkan blueprint release plan bertahap: foundation backend dahulu, lalu GUI setup, lalu dashboard operasional                                         | TODO   | High      | Phase 9 - Testing & Delivery             |
+| 106 | Usul implementasi: prioritaskan backend configuration platform sebelum membangun layar Next.js agar GUI tidak menjadi shell statis tanpa kontrol runtime | TODO   | Critical  | Phase 10 - Implementation Recommendation |
+| 107 | Usul implementasi: bangun Next.js sebagai admin console terpisah agar boundary domain dan deployment lebih bersih                                        | TODO   | High      | Phase 10 - Implementation Recommendation |
+| 108 | Usul implementasi: gunakan pola `ConfigService` + `WhatsAppSessionService` + `DiagnosticsService` sebagai inti backend baru                              | TODO   | Critical  | Phase 10 - Implementation Recommendation |
+| 109 | Usul implementasi: mulai MVP GUI dari 5 layar inti yaitu Setup Wizard, Integrations Status, WhatsApp Session, Config Review, Dashboard Ringkas           | TODO   | High      | Phase 10 - Implementation Recommendation |
+| 110 | Usul implementasi: fase pertama delivery fokus pada save config, test connection, dan tampilkan QR code sebelum fitur analitik tambahan                  | TODO   | Critical  | Phase 10 - Implementation Recommendation |
+| 111 | Usul implementasi: pertahankan SQLite untuk sekarang, tetapi siapkan abstraction agar future migration ke DB server lebih mudah                          | TODO   | Medium    | Phase 10 - Implementation Recommendation |
+| 112 | Usul implementasi: tambahkan mekanisme sync queue untuk Google Sheets agar integrasi eksternal tidak memblokir alur utama bot                            | TODO   | High      | Phase 10 - Implementation Recommendation |
+| 113 | Usul implementasi: gunakan status health berbasis warna dan checklist readiness pada GUI supaya onboarding admin lebih jelas                             | TODO   | Medium    | Phase 10 - Implementation Recommendation |
+| 114 | Usul implementasi: siapkan milestone implementasi 3 tahap yaitu Foundation Refactor, Setup GUI MVP, Operational Dashboard                                | TODO   | High      | Phase 10 - Implementation Recommendation |
+| 115 | Usul implementasi: defer fitur edit transaksi, multi-user admin, dan analytics lanjutan sampai MVP setup stabil                                          | TODO   | Medium    | Phase 10 - Implementation Recommendation |
