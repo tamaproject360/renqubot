@@ -7,6 +7,9 @@
 - Menaikkan batas ukuran gambar WhatsApp untuk AI vision dari 5 MB menjadi 20 MB.
 - Memperbarui `.env.example` agar mencakup backend API, frontend admin, config storage, credential directory, runtime bridge WhatsApp, serta pemisahan `SPREADSHEET_NAME` dan `SHEET_NAME`.
 - Menambahkan header otomatis Google Spreadsheet `Timestamp`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan` dengan styling header sederhana sebelum append transaksi.
+- Mengubah halaman Setup menjadi wizard linear dengan progress indicator, validasi per step, navigasi Back/Next, auto-save draft, contoh pengisian di setiap field, dan halaman Review.
+- Menambahkan endpoint `GET /api/bot-runtime/status` dan `POST /api/bot-runtime/start` untuk menyalakan bot runtime dari hasil wizard setup.
+- Menambahkan tombol `Simpan & Nyalakan Bot` pada review wizard agar setelah konfigurasi selesai bot bisa langsung dijalankan.
 - Memperbarui kontrak transaksi backend API agar metadata transaksi dan status sinkronisasi ikut terekspos untuk admin dashboard.
 - Menambahkan Phase 6 reliability foundation: structured JSON logger untuk API dan bot runtime, sanitasi field sensitif, dan correlation ID request API.
 - Menambahkan retry policy eksplisit untuk Gemini `generateContent` dan append Google Sheets.

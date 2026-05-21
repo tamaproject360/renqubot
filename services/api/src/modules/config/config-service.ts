@@ -20,6 +20,8 @@ interface IAuditLogEntry {
   createdAt: string;
 }
 
+export type ISecretValues = Record<string, string>;
+
 const CONFIG_PATH = Bun.env.CONFIG_PATH || './data/config/app-config.json';
 const SECRETS_PATH = Bun.env.SECRETS_PATH || './data/config/app-secrets.json';
 const SECRETS_META_PATH =
@@ -126,6 +128,10 @@ export class ConfigService {
       fieldIssues: [],
       secrets,
     };
+  }
+
+  public async getSecretValues(): Promise<ISecretValues> {
+    return readJsonFile<ISecretValues>(SECRETS_PATH, {});
   }
 
   public async savePartialConfig(payload: unknown): Promise<IConfigStatus> {

@@ -326,6 +326,10 @@ Endpoint backend yang tersedia:
     - membaca daftar job sinkronisasi Spreadsheet.
 18. `POST /api/spreadsheet-sync/retry`
     - menjalankan retry untuk job Spreadsheet berstatus `pending`.
+19. `GET /api/bot-runtime/status`
+    - membaca status proses bot runtime yang dinyalakan dari backend API.
+20. `POST /api/bot-runtime/start`
+    - menyalakan bot runtime legacy dari konfigurasi wizard. Untuk saat ini runtime start mendukung provider aktif Gemini.
 
 Endpoint `/health` dan `/ready` sekarang menggunakan `HealthService` untuk mengagregasi status database, AI, spreadsheet, dan WhatsApp. Jika komponen critical tidak siap, endpoint dapat mengembalikan HTTP `503` dengan envelope error-free tetapi status readiness `not_ready`.
 
@@ -443,6 +447,7 @@ Admin GUI Phase 4 menggunakan visual korporat dengan palet utama biru dan area k
    - `/transactions`
    - `/system`
 5. Komponen frontend dipisahkan antara layout, UI primitives, dan presentational components per domain agar fetcher/server integration dapat ditambahkan tanpa mengubah visual layer besar-besaran.
+6. Halaman `/setup` menggunakan pola wizard linear dengan progress indicator, tombol Back/Next, validasi per step, auto-save draft konfigurasi non-secret, review page, dan tombol `Simpan & Nyalakan Bot` untuk menjalankan runtime setelah setup selesai.
 
 ### Recommended Core UI Components
 

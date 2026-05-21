@@ -2,6 +2,7 @@ import { ZodError } from 'zod';
 import { fail, ok, readJsonBody, validationError } from './lib/http';
 import { logger } from './lib/logger';
 import { AiService } from './modules/ai/ai-service';
+import { BotRuntimeService } from './modules/bot-runtime/bot-runtime-service';
 import { ConfigService } from './modules/config/config-service';
 import { DatabaseService } from './modules/database/database-service';
 import { DiagnosticsService } from './modules/diagnostics/diagnostics-service';
@@ -24,6 +25,7 @@ const whatsappService = new WhatsappService(databaseService);
 const healthService = new HealthService(diagnosticsService, whatsappService);
 const systemService = new SystemService();
 const transactionService = new TransactionService(databaseService);
+const botRuntimeService = new BotRuntimeService();
 
 const notFound = () => {
   return fail('NOT_FOUND', 'Route tidak ditemukan.', 404);
@@ -78,10 +80,14 @@ const server = Bun.serve({
       );
     }
 
-    if (url.pathname === '/api/system/status') {
-      const status = systemService.getSystemStatus();
-      return ok(status);
-    }
+      if (url.pathname === '/api/system/status') {
+        const status = systemService.getSystemStatus();
+        return ok(status);
+      }
+
+      if (url.pathname === '/api/bot-runtime/status') {
+        return ok(botRuntimeService.getStatus());
+      }
 
     try {
       if (url.pathname === '/api/config' && request.method === 'GET') {
@@ -157,6 +163,35 @@ const server = Bun.serve({
 
       if (url.pathname === '/api/ai/capabilities' && request.method === 'GET') {
         return ok(aiService.getCapabilities());
+      }
+
+      if (
+        url.pathname === '/api/bot-runtime/start' &&
+        request.method === 'POST'
+      ) {
+        const configStatus = await configService.getStatus();
+
+        if (!configStatus.valid) {
+          return fail(
+            'CONFIG_NOT_READY',
+            `Konfigurasi belum lengkap: ${configStatus.missingFields.join(', ')}`,
+            400,
+          );
+        }
+
+        if (configStatus.config.activeAiProvider !== 'gemini') {
+          return fail(
+            'UNSUPPORTED_RUNTIME_PROVIDER',
+            'Bot runtime saat ini baru mendukung provider aktif Gemini.',
+            400,
+          );
+        }
+
+        const result = botRuntimeService.start(
+          configStatus.config,
+          await configService.getSecretValues(),
+        );
+        return ok(result);
       }
 
       if (
