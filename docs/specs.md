@@ -157,12 +157,14 @@ renqubot/
 ```text
 renqubot/
 ├─ apps/
-│  └─ web/                    # Next.js admin GUI
+│  └─ web/                    # Next.js admin GUI (frontend terpisah)
 ├─ docs/
 ├─ scripts/
+├─ services/
+│  └─ api/                    # Bun REST API backend terpisah
 ├─ src/
 │  ├─ ai/
-│  ├─ api/                    # future HTTP API layer
+│  ├─ api/                    # future HTTP API layer / legacy transition
 │  ├─ config/
 │  ├─ db/
 │  ├─ domain/
@@ -170,7 +172,7 @@ renqubot/
 │  ├─ services/
 │  ├─ spreadsheet/
 │  ├─ whatsapp/
-│  └─ index.ts
+│  └─ index.ts                # legacy bot runtime entry
 ```
 
 ## Workflow (make with mermaid diagram syntax)
@@ -238,10 +240,15 @@ bun run format
 
 ### Notes
 
-- `bun start` atau `bun run start` menjalankan app utama dari `src/index.ts`
+- `bun start` atau `bun run start` menjalankan app utama legacy dari `src/index.ts`
+- `bun run start:backend` menjalankan Bun backend service baru dari `services/api/src/index.ts`
+- `bun run dev:frontend` menjalankan Next.js frontend dari `apps/web`
+- `bun run dev:backend` menjalankan backend service Bun dalam mode watch
 - `bun run typecheck` memerlukan `typescript` / `tsc` tersedia di environment
+- `bun run typecheck:frontend` menjalankan typecheck khusus frontend Next.js
+- `bun run typecheck:backend` menjalankan typecheck khusus backend Bun service
 - `bun run format` menjalankan Prettier ke seluruh project
-- Saat ini belum ada script lint dan test terpisah
+- Saat ini belum ada script lint backend dan test terpisah
 
 ## Code Style
 

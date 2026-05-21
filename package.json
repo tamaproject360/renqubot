@@ -4,13 +4,22 @@
   "version": "0.0.2",
   "module": "src/index.ts",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
   "devDependencies": {
     "@types/bun": "latest",
     "prettier": "3.8.3"
   },
   "scripts": {
     "start": "bun run src/index.ts",
+    "start:backend": "bun run services/api/src/index.ts",
+    "dev:frontend": "bun --cwd apps/web run dev",
+    "dev:backend": "bun --watch run services/api/src/index.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:frontend": "bun --cwd apps/web run typecheck",
+    "typecheck:backend": "bun --cwd services/api run typecheck",
     "bundle": "bun ./scripts/build.ts",
     "format": "bunx prettier . --write"
   },
