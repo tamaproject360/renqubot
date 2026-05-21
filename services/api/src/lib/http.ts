@@ -1,8 +1,27 @@
 import { ZodError } from 'zod';
 import { errorEnvelope, successEnvelope } from '../contracts/api';
 
+const corsOrigin = Bun.env.API_CORS_ORIGIN ?? 'http://localhost:3000';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': corsOrigin,
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-correlation-id',
+};
+
+const withCorsHeaders = (init?: ResponseInit): ResponseInit => {
+  return {
+    ...init,
+    headers: corsHeaders,
+  };
+};
+
 export const json = (data: unknown, init?: ResponseInit) => {
-  return Response.json(data, init);
+  return Response.json(data, withCorsHeaders(init));
+};
+
+export const corsPreflight = () => {
+  return new Response(null, withCorsHeaders({ status: 204 }));
 };
 
 export const ok = <T>(data: T, init?: ResponseInit) => {

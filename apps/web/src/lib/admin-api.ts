@@ -7,6 +7,7 @@ interface IApiEnvelope<T> {
   error: null | {
     code: string;
     message: string;
+    details?: unknown;
   };
 }
 
@@ -83,7 +84,11 @@ export const fetchApi = async <T>(path: string, init?: RequestInit) => {
   const envelope = (await response.json()) as IApiEnvelope<T>;
 
   if (!envelope.success || !envelope.data) {
-    throw new Error(envelope.error?.message ?? 'Request gagal.');
+    const details = envelope.error?.details
+      ? ` Detail: ${JSON.stringify(envelope.error.details)}`
+      : '';
+
+    throw new Error(`${envelope.error?.message ?? 'Request gagal.'}${details}`);
   }
 
   return envelope.data;

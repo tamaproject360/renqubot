@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-22
+
+- Memperbaiki CORS backend API untuk frontend admin Next.js dengan header `Access-Control-Allow-*` pada response JSON dan handler preflight `OPTIONS`.
+- Memperbaiki wizard setup agar autosave hanya mengirim konfigurasi provider AI aktif.
+- Menambahkan dukungan runtime bot multi-provider untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider seperti DeepSeek, Kimi, OpenRouter, PabrikToken, atau LiteLLM.
+- Menambahkan fallback request OpenAI-compatible tanpa `response_format` jika provider/gateway tidak mendukung JSON mode eksplisit.
+- Mengubah handler WhatsApp agar pencatatan transaksi hanya diproses lewat command `/catat`, termasuk pesan dari akun sendiri untuk skenario nomor pribadi.
+
 ## 2026-05-21
 
 - Menambahkan Phase 7 data evolution: dedup transaksi berbasis `source_message_id`, normalisasi tanggal transaksi ke `YYYY-MM-DD`, dan metadata `sender`, `raw_ai_result`, `confidence`, serta `processed_at`.

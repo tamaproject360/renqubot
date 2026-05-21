@@ -1,5 +1,11 @@
 import { ZodError } from 'zod';
-import { fail, ok, readJsonBody, validationError } from './lib/http';
+import {
+  corsPreflight,
+  fail,
+  ok,
+  readJsonBody,
+  validationError,
+} from './lib/http';
 import { logger } from './lib/logger';
 import { AiService } from './modules/ai/ai-service';
 import { BotRuntimeService } from './modules/bot-runtime/bot-runtime-service';
@@ -51,6 +57,10 @@ const server = Bun.serve({
     const correlationId =
       request.headers.get('x-correlation-id') ?? crypto.randomUUID();
 
+    if (request.method === 'OPTIONS') {
+      return corsPreflight();
+    }
+
     logger.info('Incoming request', {
       module: 'API',
       correlationId,
@@ -80,14 +90,14 @@ const server = Bun.serve({
       );
     }
 
-      if (url.pathname === '/api/system/status') {
-        const status = systemService.getSystemStatus();
-        return ok(status);
-      }
+    if (url.pathname === '/api/system/status') {
+      const status = systemService.getSystemStatus();
+      return ok(status);
+    }
 
-      if (url.pathname === '/api/bot-runtime/status') {
-        return ok(botRuntimeService.getStatus());
-      }
+    if (url.pathname === '/api/bot-runtime/status') {
+      return ok(botRuntimeService.getStatus());
+    }
 
     try {
       if (url.pathname === '/api/config' && request.method === 'GET') {
@@ -175,14 +185,6 @@ const server = Bun.serve({
           return fail(
             'CONFIG_NOT_READY',
             `Konfigurasi belum lengkap: ${configStatus.missingFields.join(', ')}`,
-            400,
-          );
-        }
-
-        if (configStatus.config.activeAiProvider !== 'gemini') {
-          return fail(
-            'UNSUPPORTED_RUNTIME_PROVIDER',
-            'Bot runtime saat ini baru mendukung provider aktif Gemini.',
             400,
           );
         }

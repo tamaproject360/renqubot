@@ -54,6 +54,14 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 
 ## Tasklist Pengembangan
 
+## Checkpoint 2026-05-22
+
+- DONE: Memperbaiki error CORS pada backend API `services/api` agar frontend admin `http://localhost:3000` dapat mengakses endpoint `http://localhost:3001/api/config` dan endpoint JSON lain melalui preflight `OPTIONS`.
+- DONE: Memperbaiki error lanjutan setup wizard dengan membatasi payload autosave ke provider AI aktif.
+- DONE: Menghapus vendor lock-in runtime Gemini dengan menambahkan adapter runtime untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider seperti DeepSeek, Kimi, OpenRouter, PabrikToken, atau LiteLLM.
+- DONE: Menambahkan fallback OpenAI-compatible tanpa `response_format` agar gateway/model yang belum mendukung JSON mode eksplisit tetap bisa dipakai.
+- DONE: Mengubah alur WhatsApp agar pencatatan pemasukan/pengeluaran hanya berjalan jika pesan diawali `/catat`, termasuk dukungan chat ke diri sendiri pada nomor pribadi.
+
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |
 |   1 | Susun target arsitektur tahap berikutnya: pisahkan bot runtime, config service, dan admin frontend Next.js dalam dokumen arsitektur singkat                                          | DONE   | Critical  | Phase 1 - Architecture Foundation        |

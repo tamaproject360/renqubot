@@ -11,6 +11,17 @@ export interface IBotRuntimeStatus {
 
 const rootDir = fileURLToPath(new URL('../../../../../', import.meta.url));
 
+const secretKeyByProvider: Record<IAppConfig['activeAiProvider'], string> = {
+  gemini: 'gemini.apiKey',
+  openai: 'openai.apiKey',
+  anthropic: 'anthropic.apiKey',
+  'openai-compatible': 'custom.apiKey',
+};
+
+const getRuntimeSecret = (config: IAppConfig, secrets: ISecretValues) => {
+  return secrets[secretKeyByProvider[config.activeAiProvider]];
+};
+
 export class BotRuntimeService {
   private process: Bun.Subprocess | null = null;
   private startedAt: string | null = null;
@@ -38,14 +49,12 @@ export class BotRuntimeService {
       return this.getStatus();
     }
 
-    if (config.activeAiProvider !== 'gemini') {
-      throw new Error('Bot runtime saat ini baru mendukung provider aktif Gemini.');
-    }
+    const apiKey = getRuntimeSecret(config, secrets);
 
-    const geminiApiKey = secrets['gemini.apiKey'];
-
-    if (!geminiApiKey) {
-      throw new Error('Gemini API Key wajib diisi sebelum menyalakan bot.');
+    if (!apiKey) {
+      throw new Error(
+        'API key provider aktif wajib diisi sebelum menyalakan bot.',
+      );
     }
 
     this.startedAt = new Date().toISOString();
@@ -53,10 +62,23 @@ export class BotRuntimeService {
       cwd: rootDir,
       env: {
         ...Bun.env,
+        AI_PROVIDER: config.activeAiProvider,
         DATABASE_URL: config.database.url,
-        GEMINI_API_KEY: geminiApiKey,
+        GEMINI_API_KEY: secrets['gemini.apiKey'] ?? '',
         GEMINI_MODEL: config.ai.gemini.model,
         GEMINI_HOST: config.ai.gemini.baseUrl ?? '',
+        OPENAI_API_KEY: secrets['openai.apiKey'] ?? '',
+        OPENAI_MODEL: config.ai.openai.model,
+        OPENAI_BASE_URL:
+          config.ai.openai.baseUrl ?? 'https://api.openai.com/v1',
+        ANTHROPIC_API_KEY: secrets['anthropic.apiKey'] ?? '',
+        ANTHROPIC_MODEL: config.ai.anthropic.model,
+        ANTHROPIC_BASE_URL:
+          config.ai.anthropic.baseUrl ?? 'https://api.anthropic.com',
+        CUSTOM_API_KEY: secrets['custom.apiKey'] ?? '',
+        CUSTOM_PROVIDER_NAME: config.ai.custom.name,
+        CUSTOM_MODEL: config.ai.custom.model,
+        CUSTOM_BASE_URL: config.ai.custom.baseUrl ?? '',
         SPREADSHEET_ID: config.spreadsheet.spreadsheetId,
         SPREADSHEET_NAME: config.spreadsheet.spreadsheetName,
         SHEET_NAME: config.spreadsheet.sheetName,

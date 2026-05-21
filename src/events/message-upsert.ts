@@ -11,8 +11,25 @@ import { ALLOWED_USER_IDS } from '../config';
 import { logger } from '../logger';
 
 const allowedIds = ALLOWED_USER_IDS;
-const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const allowedImageMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 const maxImageSizeBytes = 20 * 1024 * 1024;
+const catatCommandPattern = /^\/catat(?:\s+([\s\S]+))?$/i;
+const catatUsageText =
+  'Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
+
+const parseCatatCommand = (value?: string | null) => {
+  const match = value?.trim().match(catatCommandPattern);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1]?.trim() ?? '';
+};
 
 export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
   const keyId = message.key.id;
@@ -23,8 +40,6 @@ export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
     null;
 
   if (!keyId || !remoteJid) return;
-
-  if (message.key.fromMe) return;
 
   const sourceMessageId = `${remoteJid}-${keyId}`;
 
@@ -74,6 +89,24 @@ const handleBotMessage = async (
     return;
   }
 
+  if (!msg) {
+    logger.warn('Empty WhatsApp message content', {
+      module: 'MessageUpsert',
+      sourceMessageId,
+    });
+    return;
+  }
+
+  const textCommand = parseCatatCommand(
+    msg.conversation ?? msg.extendedTextMessage?.text,
+  );
+  const imageCommand = parseCatatCommand(msg.imageMessage?.caption);
+  const commandText = textCommand ?? imageCommand;
+
+  if (commandText === null) {
+    return;
+  }
+
   if (await hasTransactionBySourceMessageId(sourceMessageId)) {
     await sock.sendMessage(
       remoteJid,
@@ -90,23 +123,18 @@ const handleBotMessage = async (
   let bot: IBotMessage | null = null;
   let response: string | null = null;
 
-  if (!msg) {
-    logger.warn('Empty WhatsApp message content', {
-      module: 'MessageUpsert',
-      sourceMessageId,
-    });
+  if (!msg.imageMessage && !commandText) {
+    await sock.sendMessage(
+      remoteJid,
+      { text: catatUsageText },
+      { quoted: message },
+    );
     return;
   }
 
-  if (msg.conversation) {
+  if (textCommand !== null) {
     bot = {
-      message: msg.conversation,
-    };
-  }
-
-  if (msg.extendedTextMessage?.text) {
-    bot = {
-      message: msg.extendedTextMessage.text,
+      message: commandText,
     };
   }
 
@@ -139,7 +167,11 @@ const handleBotMessage = async (
 
       if (response) {
         await sock.readMessages([message.key]);
-        await sock.sendMessage(remoteJid, { text: response }, { quoted: message });
+        await sock.sendMessage(
+          remoteJid,
+          { text: response },
+          { quoted: message },
+        );
         return;
       }
 
@@ -148,7 +180,7 @@ const handleBotMessage = async (
           data: buffer.toString('base64'),
           mimeType: mimeType,
         },
-        message: msg.imageMessage.caption || undefined,
+        message: commandText || undefined,
       };
     } catch (error) {
       logger.error('Failed to download image message', {

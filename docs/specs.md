@@ -20,11 +20,11 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 
 ### Existing Features
 
-1. Menerima pesan WhatsApp dari user
+1. Menerima pesan WhatsApp dari user melalui command `/catat` agar pesan pribadi tidak otomatis dicatat
 2. Mendukung input:
-   - teks
-   - gambar
-   - gambar + caption
+   - teks setelah `/catat`
+   - gambar dengan caption `/catat`
+   - gambar + caption `/catat <keterangan>`
 3. Menyimpan pesan mentah ke database
 4. Melakukan klasifikasi transaksi dengan AI provider yang dapat dipilih (Gemini, OpenAI, Anthropic, atau provider custom kompatibel OpenAI)
 5. Menyimpan hasil transaksi ke SQLite
@@ -280,6 +280,8 @@ bun run format
 
 Backend service baru berada di `services/api` dan berjalan di port `API_PORT` atau default `3001`. Seluruh response API menggunakan envelope konsisten:
 
+Backend API mengizinkan akses CORS dari frontend admin Next.js melalui `API_CORS_ORIGIN` atau default `http://localhost:3000`, termasuk preflight `OPTIONS` untuk request JSON dari browser.
+
 ```json
 {
   "success": true,
@@ -329,7 +331,7 @@ Endpoint backend yang tersedia:
 19. `GET /api/bot-runtime/status`
     - membaca status proses bot runtime yang dinyalakan dari backend API.
 20. `POST /api/bot-runtime/start`
-    - menyalakan bot runtime legacy dari konfigurasi wizard. Untuk saat ini runtime start mendukung provider aktif Gemini.
+    - menyalakan bot runtime legacy dari konfigurasi wizard dengan provider aktif Gemini, OpenAI, Anthropic, atau OpenAI-compatible.
 
 Endpoint `/health` dan `/ready` sekarang menggunakan `HealthService` untuk mengagregasi status database, AI, spreadsheet, dan WhatsApp. Jika komponen critical tidak siap, endpoint dapat mengembalikan HTTP `503` dengan envelope error-free tetapi status readiness `not_ready`.
 
