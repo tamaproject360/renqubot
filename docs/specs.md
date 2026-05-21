@@ -358,6 +358,7 @@ Phase 7 dan Phase 8 menambahkan guard domain berikut pada runtime bot legacy dan
 5. Response AI invalid atau JSON rusak tidak disimpan sebagai transaksi dan dikembalikan sebagai fallback reply aman.
 6. Confidence score disimpan sebagai angka `0..1`; jika model tidak mengirim confidence, runtime memakai default konservatif.
 7. Payload gambar dibatasi ke MIME `image/jpeg`, `image/png`, atau `image/webp` dengan ukuran maksimum 20 MB sebelum diproses model.
+8. Sinkronisasi Google Spreadsheet menulis header baris pertama `Timestamp`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan`, lalu append transaksi pada kolom `A:F`.
 
 ## Configuration Platform
 

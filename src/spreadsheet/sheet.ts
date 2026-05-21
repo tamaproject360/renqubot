@@ -10,12 +10,12 @@ export const saveToSheetDirect = async (data: IAIResponse) => {
   const t = data.transaction_data;
 
   const rowData = [
-    t.date || new Date().toISOString().split('T')[0] || null, // Kolom A: Date
-    t.type, // Kolom B: Type
-    t.category, // Kolom C: Category
-    t.amount, // Kolom D: Amount
-    t.merchant_or_sender, // Kolom E: Merchant
-    t.description, // Kolom F: Desc
+    t.date || new Date().toISOString().split('T')[0] || null,
+    t.type,
+    t.category,
+    t.amount,
+    t.merchant_or_sender,
+    t.description,
   ];
 
   if (!SPREADSHEET_ID || !GCLOUD_KEY_PATH) {

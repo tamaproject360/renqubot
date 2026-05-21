@@ -6,6 +6,7 @@
 - Menambahkan Phase 8 AI quality guard: schema validation output JSON AI, fallback response saat output invalid, confidence score default/terbatas 0-1, serta guard mime type dan ukuran gambar maksimum 20 MB.
 - Menaikkan batas ukuran gambar WhatsApp untuk AI vision dari 5 MB menjadi 20 MB.
 - Memperbarui `.env.example` agar mencakup backend API, frontend admin, config storage, credential directory, runtime bridge WhatsApp, serta pemisahan `SPREADSHEET_NAME` dan `SHEET_NAME`.
+- Menambahkan header otomatis Google Spreadsheet `Timestamp`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan` dengan styling header sederhana sebelum append transaksi.
 - Memperbarui kontrak transaksi backend API agar metadata transaksi dan status sinkronisasi ikut terekspos untuk admin dashboard.
 - Menambahkan Phase 6 reliability foundation: structured JSON logger untuk API dan bot runtime, sanitasi field sensitif, dan correlation ID request API.
 - Menambahkan retry policy eksplisit untuk Gemini `generateContent` dan append Google Sheets.
