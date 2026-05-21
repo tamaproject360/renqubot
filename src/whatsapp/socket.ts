@@ -30,6 +30,7 @@ import { useStorage } from './storage';
 import { renderANSI, renderUnicodeCompact } from 'uqr';
 import { groupUpsert, messageUpsert } from '../events';
 import { sql } from '../db';
+import { writeWhatsappRuntimeState } from './runtime-state';
 
 const msgRetryCounterCache = new NodeCache({
   stdTTL: 60 * 60, // 1 hour
@@ -162,11 +163,20 @@ export const startSocket = async () => {
 
     if (connection) {
       console.log(`[Whatsapp] Connection status: ${connection}`);
+      writeWhatsappRuntimeState({ connection }).catch((error) => {
+        console.error('[Whatsapp] Failed to write runtime state', error);
+      });
     }
 
     if (qr) {
       console.log('[Whatsapp] QR Code received, scan please!');
       console.log(renderUnicodeCompact(qr, {}));
+      writeWhatsappRuntimeState({
+        lastQr: qr,
+        qrUpdatedAt: new Date().toISOString(),
+      }).catch((error) => {
+        console.error('[Whatsapp] Failed to write QR runtime state', error);
+      });
     }
 
     if (connection === 'close') {
@@ -174,6 +184,13 @@ export const startSocket = async () => {
       const statusMsg = (
         (lastDisconnect?.error as Boom)?.message ?? ''
       ).toLowerCase();
+
+      writeWhatsappRuntimeState({
+        connection: 'close',
+        lastError: statusMsg || String(lastDisconnect?.error ?? 'unknown'),
+      }).catch((error) => {
+        console.error('[Whatsapp] Failed to write close runtime state', error);
+      });
 
       if (statusMsg.includes('qr refs attempts ended')) {
         console.log('[Whatsapp] QR attempts ended');

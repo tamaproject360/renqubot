@@ -6,7 +6,11 @@ Bot pencatatan keuangan berbasis WhatsApp dengan AI inference multi-provider unt
 
 **Renqu Bot** membantu mencatat transaksi keuangan langsung dari percakapan WhatsApp. Pengguna dapat mengirim teks, gambar struk, atau gambar dengan caption, lalu sistem akan memproses input tersebut menggunakan AI untuk mengekstrak transaksi dan menyimpannya sebagai data keuangan terstruktur.
 
-Saat ini aplikasi berjalan sebagai **backend monolith berbasis Bun + TypeScript**. Arsitektur target berikutnya adalah menambahkan **admin GUI berbasis Next.js** untuk setup dan operasional.
+Saat ini aplikasi memiliki tiga bagian utama:
+
+- **Bot runtime legacy** berbasis Bun + TypeScript di `src/`
+- **Backend API admin** berbasis Bun di `services/api/`
+- **Frontend admin GUI** berbasis Next.js di `apps/web/`
 
 Dokumen arsitektur utama tersedia di `docs/specs.md` dan tasklist pengembangan ada di `docs/task.md`.
 
@@ -32,21 +36,25 @@ Komponen utama saat ini:
 - **Database**: SQLite via `Bun.SQL`
 - **Spreadsheet Integration**: Google Sheets API
 
-Arah pengembangan berikutnya:
+Arah pengembangan saat ini:
 
 - provider AI yang bisa dipilih: Gemini, OpenAI, Anthropic, dan custom OpenAI-compatible
-- admin panel Next.js untuk setup konfigurasi
-- health diagnostics dan status WhatsApp via GUI
+- admin panel Next.js untuk setup konfigurasi dan monitoring
+- health diagnostics dan status WhatsApp via GUI/API
 - abstraction layer untuk AI, config, dan diagnostics service
 
 ## Project Structure
 
 ```text
 renqubot/
+├─ apps/
+│  └─ web/                  # Next.js admin frontend
 ├─ docs/
 │  ├─ specs.md
 │  └─ task.md
 ├─ scripts/
+├─ services/
+│  └─ api/                  # Bun backend API untuk admin GUI
 ├─ src/
 │  ├─ ai/
 │  ├─ events/
@@ -92,14 +100,15 @@ flowchart TD
 Sebelum menjalankan aplikasi, siapkan:
 
 - [Bun](https://bun.sh)
-- akun WhatsApp untuk login bot
-- API key provider AI
-- Google Spreadsheet ID
-- Google Cloud service account key untuk akses spreadsheet
+- akun WhatsApp untuk login bot jika ingin menjalankan bot runtime
+- API key provider AI jika ingin menjalankan bot runtime atau membuat readiness `ready`
+- Google Spreadsheet ID dan Google Cloud service account key jika ingin menguji integrasi spreadsheet
 
 ## Configuration
 
-Salin `.env.example` menjadi `.env` lalu isi nilai yang diperlukan.
+Untuk sekadar mencoba admin backend dan frontend, `.env` belum wajib. Backend API tetap bisa berjalan dan akan menampilkan status `not_ready` sampai konfigurasi dilengkapi.
+
+Untuk menjalankan bot WhatsApp legacy, salin `.env.example` menjadi `.env` lalu isi minimal `GEMINI_API_KEY`.
 
 ### Environment Variables
 
@@ -117,8 +126,8 @@ Salin `.env.example` menjadi `.env` lalu isi nilai yang diperlukan.
 
 ### Notes
 
-- Implementasi saat ini masih membaca konfigurasi langsung dari environment variable.
-- Arsitektur target akan menambahkan config service dan GUI setup.
+- Bot runtime legacy masih membaca konfigurasi dari environment variable.
+- Admin backend menyimpan konfigurasi GUI di `data/config` dan secret metadata secara terpisah.
 - `SPREADSHEET_NAME` dan `SHEET_NAME` sengaja dibedakan karena konteksnya berbeda.
 
 ## Getting Started
@@ -129,15 +138,79 @@ Salin `.env.example` menjadi `.env` lalu isi nilai yang diperlukan.
 bun install
 ```
 
-### 2. Setup environment
+### 2. Setup environment untuk bot runtime legacy
 
 ```bash
 cp .env.example .env
 ```
 
-Lalu isi konfigurasi yang dibutuhkan.
+Lalu isi konfigurasi yang dibutuhkan. Langkah ini bisa dilewati jika hanya ingin mencoba admin backend dan frontend.
 
-### 3. Run the app
+### 3. Jalankan Backend API Admin
+
+Buka terminal pertama:
+
+```bash
+bun run dev:backend
+```
+
+Backend API berjalan di:
+
+```text
+http://localhost:3001
+```
+
+Endpoint yang bisa langsung dicoba:
+
+```text
+GET http://localhost:3001/health
+GET http://localhost:3001/ready
+GET http://localhost:3001/api/config
+GET http://localhost:3001/api/diagnostics/database
+GET http://localhost:3001/api/diagnostics/ai
+GET http://localhost:3001/api/diagnostics/spreadsheet
+GET http://localhost:3001/api/whatsapp/status
+GET http://localhost:3001/api/whatsapp/qr
+GET http://localhost:3001/api/transactions
+GET http://localhost:3001/api/summary
+```
+
+Catatan: `/health`, `/ready`, atau diagnostics AI bisa mengembalikan HTTP `503` jika API key/config belum lengkap. Itu normal untuk kondisi awal.
+
+### 4. Jalankan Frontend Admin
+
+Buka terminal kedua:
+
+```bash
+bun run dev:frontend
+```
+
+Frontend berjalan di:
+
+```text
+http://localhost:3000
+```
+
+Halaman utama:
+
+```text
+http://localhost:3000/dashboard
+http://localhost:3000/setup
+http://localhost:3000/integrations
+http://localhost:3000/whatsapp
+http://localhost:3000/transactions
+http://localhost:3000/system
+```
+
+Jika backend dijalankan pada URL lain, set environment frontend:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3001 bun run dev:frontend
+```
+
+### 5. Jalankan Bot WhatsApp Legacy
+
+Buka terminal ketiga setelah `.env` lengkap:
 
 ```bash
 bun start
@@ -149,36 +222,53 @@ Atau:
 bun run start
 ```
 
-### 4. Scan WhatsApp QR
+### 6. Scan WhatsApp QR
 
-Saat aplikasi berjalan, QR code akan muncul di terminal. Scan menggunakan akun WhatsApp yang ingin dipakai oleh bot.
+Saat bot runtime berjalan, QR code akan muncul di terminal. QR/status juga ditulis ke `data/runtime/whatsapp-status.json` agar dapat dibaca halaman `/whatsapp` di admin GUI.
+
+## Local Testing Flow
+
+Urutan yang disarankan untuk test cepat:
+
+1. Jalankan `bun install`
+2. Jalankan `bun run dev:backend`
+3. Buka `http://localhost:3001/api/config`
+4. Jalankan `bun run dev:frontend`
+5. Buka `http://localhost:3000/dashboard`
+6. Coba halaman `/setup`, `/integrations`, dan `/whatsapp`
+7. Jika ingin test bot WhatsApp, lengkapi `.env`, jalankan `bun start`, lalu scan QR
 
 ## Available Commands
 
 ```bash
 bun start
 bun run start
+bun run dev:backend
+bun run dev:frontend
+bun run start:backend
 bun run typecheck
+bun run typecheck:backend
+bun run typecheck:frontend
 bun run bundle
 bun run format
 ```
 
 ## Development Notes
 
-- `src/config.ts` saat ini masih memiliki side-effect saat import
-- `src/ai/ai.ts` masih terikat pada implementasi provider saat ini dan akan direfactor ke abstraction layer multi-provider
-- belum ada HTTP API internal untuk GUI Next.js
-- belum ada health endpoint, diagnostics endpoint, atau QR exposure ke UI
+- `src/` masih menjadi bot runtime legacy.
+- `services/api` adalah backend API admin yang berjalan terpisah dari bot runtime.
+- `apps/web` adalah frontend Next.js dengan sidebar biru collapsible dan main area putih.
+- Readiness awal bisa `not_ready` sampai config provider AI dan WhatsApp dilengkapi.
 
 ## Roadmap Summary
 
 Prioritas pengembangan berikutnya:
 
-1. Refactor configuration platform
-2. Bangun abstraction layer AI multi-provider
-3. Tambahkan diagnostics dan service API internal
-4. Bangun admin GUI dengan Next.js
-5. Tambahkan security, observability, dan testing yang lebih lengkap
+1. Tambahkan autentikasi admin untuk GUI dan endpoint sensitif
+2. Hubungkan form frontend dengan seluruh endpoint config/secret/upload
+3. Tingkatkan abstraction layer AI multi-provider
+4. Tambahkan observability dan testing yang lebih lengkap
+5. Siapkan deployment blueprint untuk frontend, backend API, dan bot runtime
 
 Detail task tersedia di `docs/task.md`.
 
@@ -194,6 +284,14 @@ Type check:
 
 ```bash
 bun run typecheck
+bun run typecheck:backend
+bun run typecheck:frontend
+```
+
+Build frontend:
+
+```bash
+bun --cwd apps/web run build
 ```
 
 ## Security Considerations

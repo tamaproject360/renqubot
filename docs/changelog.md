@@ -2,6 +2,18 @@
 
 ## 2026-05-21
 
+- Memperbarui README dengan instruksi testing lokal untuk backend API, frontend Next.js, dan bot runtime legacy.
+- Memperbaiki script workspace root untuk menjalankan frontend/backend typecheck via `bun run --filter`.
+- Menambahkan Admin Frontend Phase 4 dengan Next.js App Router route `/dashboard`, `/setup`, `/integrations`, `/whatsapp`, `/transactions`, dan `/system`.
+- Mengubah AppShell frontend menjadi layout korporat dengan sidebar biru collapsible dan main content putih.
+- Menambahkan design system awal frontend: `PageHeader`, `SectionCard`, `FormField`, `SecretInput`, `StatusBadge`, `SummaryStatCard`, dan `WizardStepper`.
+- Menambahkan halaman setup wizard, integration status, WhatsApp session, transactions table, system review, dan dashboard ringkas.
+- Memperbarui dokumentasi specs dan tasklist untuk status Phase 4 Admin Frontend.
+- Menambahkan Service API Phase 3 untuk health/readiness, diagnostics AI/database/spreadsheet, WhatsApp status/QR/reset session, transaksi, dan summary dashboard.
+- Menambahkan `HealthService`, `DiagnosticsService`, `DatabaseService`, `AiService`, `SpreadsheetService`, `WhatsappService`, dan `TransactionService` pada backend Bun.
+- Menambahkan runtime status bridge WhatsApp melalui `data/runtime/whatsapp-status.json` agar API service dapat membaca connection state dan QR dari bot runtime terpisah.
+- Menambahkan guard `confirm=RESET_WHATSAPP_SESSION` untuk endpoint reset session WhatsApp.
+- Menambahkan kontrak response untuk health, diagnostics, WhatsApp, dan transaksi.
 - Menambahkan Config Platform Phase 2 di backend Bun dengan schema Zod untuk AI provider, database, spreadsheet, WhatsApp whitelist, dan service account path.
 - Menambahkan endpoint `GET/PATCH/POST /api/config`, `PATCH /api/config/secrets`, dan `POST /api/config/google-service-account` dengan response envelope konsisten.
 - Menambahkan penyimpanan konfigurasi parsial, metadata secret masked, audit log JSONL, dan penyimpanan credential Google di direktori terkontrol.

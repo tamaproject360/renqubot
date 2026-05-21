@@ -158,13 +158,21 @@ renqubot/
 renqubot/
 ├─ apps/
 │  └─ web/                    # Next.js admin GUI (frontend terpisah)
+│     ├─ src/app/             # App Router pages: dashboard, setup, integrations, whatsapp, transactions, system
+│     ├─ src/components/layout/# AppShell, sidebar, topbar
+│     ├─ src/components/ui/    # PageHeader, SectionCard, FormField, SecretInput, StatusBadge, WizardStepper
+│     └─ src/components/*/     # Komponen presentational per domain admin
 ├─ docs/
 ├─ scripts/
 ├─ services/
 │  └─ api/                    # Bun REST API backend terpisah
 │     ├─ src/contracts/       # kontrak response, config, system status
 │     ├─ src/lib/             # helper HTTP/API envelope
+│     ├─ src/modules/ai/      # AI diagnostics/service boundary awal
 │     ├─ src/modules/config/  # ConfigService dan penyimpanan config parsial
+│     ├─ src/modules/database/# Database diagnostics dan SQLite helper
+│     ├─ src/modules/health/  # HealthService agregasi komponen
+│     ├─ src/modules/spreadsheet/ # Spreadsheet diagnostics/service boundary awal
 │     └─ src/modules/system/  # SystemService status awal
 ├─ src/
 │  ├─ ai/
@@ -266,7 +274,7 @@ Backend service baru berada di `services/api` dan berjalan di port `API_PORT` at
 }
 ```
 
-Endpoint Phase 2 yang tersedia:
+Endpoint Phase 3 yang tersedia:
 
 1. `GET /health`
    - status proses backend service.
@@ -282,6 +290,28 @@ Endpoint Phase 2 yang tersedia:
    - menyimpan secret provider AI dan hanya mengembalikan metadata masked value.
 7. `POST /api/config/google-service-account`
    - menerima content JSON service account, menyimpan ke direktori terkontrol, lalu memperbarui `spreadsheet.serviceAccountPath`.
+8. `GET /api/diagnostics/ai`
+   - menjalankan diagnostics konfigurasi provider AI aktif, model, dan metadata secret.
+9. `GET /api/diagnostics/spreadsheet`
+   - menjalankan diagnostics konfigurasi Spreadsheet dan file service account.
+10. `GET /api/diagnostics/database`
+    - menjalankan diagnostics koneksi SQLite dan writable data directory.
+11. `GET /api/whatsapp/status`
+    - membaca connection state, error terakhir, dan metadata QR WhatsApp dari runtime state file.
+12. `GET /api/whatsapp/qr`
+    - membaca QR WhatsApp terakhir dengan TTL singkat.
+13. `POST /api/whatsapp/reset-session`
+    - menghapus session WhatsApp dari database jika payload menyertakan `confirm=RESET_WHATSAPP_SESSION`.
+14. `GET /api/transactions?limit=25`
+    - membaca transaksi terbaru untuk dashboard awal.
+15. `GET /api/summary`
+    - membaca saldo, pemasukan, pengeluaran, jumlah transaksi, dan transaksi terbaru.
+
+Endpoint `/health` dan `/ready` sekarang menggunakan `HealthService` untuk mengagregasi status database, AI, spreadsheet, dan WhatsApp. Jika komponen critical tidak siap, endpoint dapat mengembalikan HTTP `503` dengan envelope error-free tetapi status readiness `not_ready`.
+
+## Runtime Status Bridge
+
+WhatsApp runtime legacy menulis status koneksi dan QR terakhir ke `data/runtime/whatsapp-status.json` melalui `src/whatsapp/runtime-state.ts`. Backend API membaca file ini untuk endpoint WhatsApp status dan QR. Pendekatan ini dipilih karena bot runtime dan backend API berjalan sebagai service terpisah, sehingga state tidak bisa hanya disimpan dalam memory process yang sama.
 
 ## Configuration Platform
 
@@ -350,6 +380,22 @@ Schema database legacy juga sudah disiapkan untuk evolusi Config Platform:
 ## UI Components
 
 Bagian ini adalah acuan untuk frontend Next.js yang akan dibangun.
+
+### Frontend Theme Direction
+
+Admin GUI Phase 4 menggunakan visual korporat dengan palet utama biru dan area kerja putih:
+
+1. Sidebar memakai gradasi biru korporat (`#09245f`, `#123d8f`, `#1f6fd1`) dan dapat di-collapse.
+2. Main content memakai background putih dengan surface abu muda `#f8fafc` untuk menjaga keterbacaan dashboard.
+3. Status success, warning, dan danger menggunakan warna yang tetap bisa dibaca tanpa hanya mengandalkan warna karena label teks selalu tersedia.
+4. Layout memakai App Router Next.js dengan route awal:
+   - `/dashboard`
+   - `/setup`
+   - `/integrations`
+   - `/whatsapp`
+   - `/transactions`
+   - `/system`
+5. Komponen frontend dipisahkan antara layout, UI primitives, dan presentational components per domain agar fetcher/server integration dapat ditambahkan tanpa mengubah visual layer besar-besaran.
 
 ### Recommended Core UI Components
 

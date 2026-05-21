@@ -4,6 +4,8 @@ node_modules
 # output
 out
 dist
+.next
+apps/web/.next
 *.tgz
 
 # code coverage
@@ -37,3 +39,5 @@ key.json
 # local app data and secrets
 data/config
 data/credentials
+data/runtime
+data/*.db

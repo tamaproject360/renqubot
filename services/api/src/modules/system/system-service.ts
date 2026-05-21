@@ -4,7 +4,7 @@ import {
   systemStatusSchema,
 } from '../../contracts/system';
 
-const PHASE = 'Phase 1 - Architecture Foundation';
+const PHASE = 'Phase 3 - Service API';
 
 export class SystemService {
   public getSystemStatus(): ISystemStatus {
@@ -20,22 +20,22 @@ export class SystemService {
         {
           name: 'database',
           status: 'unknown',
-          message: 'Database diagnostics belum dihubungkan.',
+          message: 'Gunakan /api/diagnostics/database untuk status terbaru.',
         },
         {
           name: 'ai',
           status: 'unknown',
-          message: 'AI diagnostics belum dihubungkan.',
+          message: 'Gunakan /api/diagnostics/ai untuk status terbaru.',
         },
         {
           name: 'spreadsheet',
           status: 'unknown',
-          message: 'Spreadsheet diagnostics belum dihubungkan.',
+          message: 'Gunakan /api/diagnostics/spreadsheet untuk status terbaru.',
         },
         {
           name: 'whatsapp',
           status: 'unknown',
-          message: 'WhatsApp session manager belum dihubungkan.',
+          message: 'Gunakan /api/whatsapp/status untuk status terbaru.',
         },
       ],
     });
