@@ -32,6 +32,7 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 7. Menyimpan transaksi ke Google Spreadsheet jika konfigurasi tersedia
 8. Menyimpan sesi login WhatsApp ke database
 9. Membatasi akses user berdasarkan `ALLOWED_USER_IDS`
+10. Mendukung command operasional WhatsApp `/reset` untuk mengosongkan Spreadsheet dan `/destroy` untuk mereset riwayat SQLite lokal
 
 ### Planned Features
 
@@ -386,6 +387,7 @@ Phase 7 dan Phase 8 menambahkan guard domain berikut pada runtime bot legacy dan
 6. Confidence score disimpan sebagai angka `0..1`; jika model tidak mengirim confidence, runtime memakai default konservatif.
 7. Payload gambar dibatasi ke MIME `image/jpeg`, `image/png`, atau `image/webp` dengan ukuran maksimum 20 MB sebelum diproses model.
 8. Sinkronisasi Google Spreadsheet menulis header baris pertama `Timestamp`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan`, lalu append transaksi pada kolom `A:F`.
+9. Command `/destroy` menghapus histori transaksi, pesan tersimpan, grup tersimpan, dan antrean sinkronisasi Spreadsheet dari SQLite, lalu mengosongkan Spreadsheet jika integrasi tersedia; konfigurasi aplikasi dan sesi WhatsApp dipertahankan agar bot tetap bisa merespons setelah reset.
 
 ## Configuration Platform
 

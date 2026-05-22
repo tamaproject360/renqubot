@@ -6,7 +6,11 @@ import {
   type WASocket,
 } from 'baileys';
 import { generateResponse, type IBotMessage } from '../ai/ai';
-import { hasTransactionBySourceMessageId, sql } from '../db';
+import {
+  hasTransactionBySourceMessageId,
+  resetDatabaseForFreshStart,
+  sql,
+} from '../db';
 import { ALLOWED_USER_IDS } from '../config';
 import { logger } from '../logger';
 import { clearSheetForFreshStart } from '../spreadsheet';
@@ -20,6 +24,7 @@ const allowedImageMimeTypes = new Set([
 const maxImageSizeBytes = 20 * 1024 * 1024;
 const catatCommandPattern = /^\/catat(?:\s+([\s\S]+))?$/i;
 const resetCommandPattern = /^\/reset$/i;
+const destroyCommandPattern = /^\/destroy$/i;
 const catatUsageText =
   'Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
 
@@ -59,10 +64,14 @@ export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
 
   const sourceMessageId = `${remoteJid}-${keyId}`;
 
-  await Promise.all([
-    saveMessage(message, keyId, remoteJid),
-    handleBotMessage(sock, message, remoteJid, phoneNumber, sourceMessageId),
-  ]);
+  await saveMessage(message, keyId, remoteJid);
+  await handleBotMessage(
+    sock,
+    message,
+    remoteJid,
+    phoneNumber,
+    sourceMessageId,
+  );
 };
 
 const saveMessage = async (
@@ -127,6 +136,47 @@ const handleBotMessage = async (
       );
     } catch (error) {
       logger.error('Failed to reset spreadsheet from WhatsApp command', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sock.sendMessage(
+        remoteJid,
+        { text: buildProcessingErrorReply(error) },
+        { quoted: message },
+      );
+    }
+
+    return;
+  }
+
+  if (destroyCommandPattern.test(textMessage?.trim() ?? '')) {
+    try {
+      const result = await resetDatabaseForFreshStart();
+      let spreadsheetMessage =
+        'Spreadsheet juga berhasil dikosongkan dan header transaksi dibuat ulang.';
+
+      try {
+        await clearSheetForFreshStart();
+      } catch (error) {
+        spreadsheetMessage = `Database berhasil direset, tetapi Spreadsheet belum bisa dikosongkan: ${error instanceof Error ? error.message : String(error)}`;
+      }
+
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: [
+            'Database SQLite berhasil direset ke kondisi awal.',
+            `Transaksi dihapus: ${result.deletedTransactions}.`,
+            `Riwayat pesan dihapus: ${result.deletedMessages}.`,
+            `Job sync Spreadsheet dihapus: ${result.deletedSyncJobs}.`,
+            spreadsheetMessage,
+          ].join('\n'),
+        },
+        { quoted: message },
+      );
+    } catch (error) {
+      logger.error('Failed to destroy local database from WhatsApp command', {
         module: 'MessageUpsert',
         sourceMessageId,
         error: error instanceof Error ? error.message : String(error),

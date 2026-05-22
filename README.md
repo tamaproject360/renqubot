@@ -112,17 +112,17 @@ Untuk menjalankan bot WhatsApp legacy, salin `.env.example` menjadi `.env` lalu 
 
 ### Environment Variables
 
-| Variable           | Required                     | Description                                               |
-| ------------------ | ---------------------------- | --------------------------------------------------------- |
+| Variable           | Required                     | Description                                                   |
+| ------------------ | ---------------------------- | ------------------------------------------------------------- |
 | `DATABASE_URL`     | No                           | Lokasi SQLite database. Default: `sqlite://./data/baileys.db` |
-| `GEMINI_API_KEY`   | Yes (current implementation) | API key Google Gemini                                     |
-| `GEMINI_MODEL`     | No                           | Model Gemini yang digunakan                               |
-| `GEMINI_HOST`      | No                           | Base URL Gemini custom                                    |
-| `SPREADSHEET_ID`   | No                           | ID file Google Spreadsheet                                |
-| `SPREADSHEET_NAME` | No                           | Nama file / konteks spreadsheet                           |
-| `SHEET_NAME`       | No                           | Nama tab/sheet di dalam spreadsheet                       |
-| `GCLOUD_KEY_PATH`  | No                           | Path ke file service account Google Cloud                 |
-| `ALLOWED_USER_IDS` | No                           | Daftar user ID WhatsApp yang diizinkan, dipisahkan koma   |
+| `GEMINI_API_KEY`   | Yes (current implementation) | API key Google Gemini                                         |
+| `GEMINI_MODEL`     | No                           | Model Gemini yang digunakan                                   |
+| `GEMINI_HOST`      | No                           | Base URL Gemini custom                                        |
+| `SPREADSHEET_ID`   | No                           | ID file Google Spreadsheet                                    |
+| `SPREADSHEET_NAME` | No                           | Nama file / konteks spreadsheet                               |
+| `SHEET_NAME`       | No                           | Nama tab/sheet di dalam spreadsheet                           |
+| `GCLOUD_KEY_PATH`  | No                           | Path ke file service account Google Cloud                     |
+| `ALLOWED_USER_IDS` | No                           | Daftar user ID WhatsApp yang diizinkan, dipisahkan koma       |
 
 ### Notes
 
@@ -237,6 +237,13 @@ Urutan yang disarankan untuk test cepat:
 5. Buka `http://localhost:3000/dashboard`
 6. Coba halaman `/setup`, `/integrations`, dan `/whatsapp`
 7. Jika ingin test bot WhatsApp, lengkapi `.env`, jalankan `bun start`, lalu scan QR
+
+## WhatsApp Commands
+
+- `/catat <teks transaksi>`: mencatat pemasukan atau pengeluaran dari teks.
+- `/catat` sebagai caption gambar: memproses struk/foto transaksi.
+- `/reset`: mengosongkan Google Spreadsheet dan membuat ulang header transaksi.
+- `/destroy`: menghapus riwayat transaksi, pesan tersimpan, grup tersimpan, dan job sync dari SQLite lokal, lalu mencoba mengosongkan Spreadsheet. Konfigurasi dan sesi WhatsApp tetap dipertahankan.
 
 ## Available Commands
 

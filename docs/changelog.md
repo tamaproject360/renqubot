@@ -28,6 +28,7 @@
 - Melakukan checkpoint deployment LXC `1012`: Renqu Bot berjalan di Docker Compose pada `192.168.0.112`, API `3001`, Web `3000`, provider OpenAI-compatible Pabrik Token, dan database SQLite healthy setelah runtime Docker dinaikkan ke Bun `1.3.3` serta dependency workspace disalin ke image.
 - Menambahkan `docs/perbaikandeploy.md` untuk mencatat patch production Docker/Bun/SQLite yang perlu diterapkan ke source lokal, serta menambahkan dan memverifikasi alias SSH VS Code `lxc1012-renqubot` dan `renqubot-lxc` pada konfigurasi lokal.
 - Menerapkan patch deploy production ke source lokal: Dockerfile API/Web kini memakai `oven/bun:1.3.3-slim`, dependency workspace API/Web disalin dari stage deps, default database URL memakai `sqlite://`, dan `DatabaseService` membuat direktori SQLite untuk URL `sqlite://` maupun `file:`.
+- Menambahkan command WhatsApp `/destroy` untuk reset riwayat SQLite lokal: transaksi, pesan tersimpan, grup tersimpan, dan antrean sinkronisasi Spreadsheet dihapus, Spreadsheet dikosongkan jika tersedia, sedangkan konfigurasi dan sesi WhatsApp tetap dipertahankan.
 
 ## 2026-05-21
 

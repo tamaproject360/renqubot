@@ -142,12 +142,47 @@ export interface ITransaction {
   updated_at: number;
 }
 
-export const hasTransactionBySourceMessageId = async (sourceMessageId: string) => {
+export const hasTransactionBySourceMessageId = async (
+  sourceMessageId: string,
+) => {
   const rows = await sql<{ id: number }[]>`
     SELECT id FROM transactions WHERE source_message_id = ${sourceMessageId} LIMIT 1;
   `;
 
   return rows.length > 0;
+};
+
+export const resetDatabaseForFreshStart = async () => {
+  const transactionCount = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total FROM transactions;
+  `;
+  const messageCount = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total FROM messages;
+  `;
+  const syncJobCount = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total FROM spreadsheet_sync_jobs;
+  `;
+
+  await sql`DELETE FROM spreadsheet_sync_jobs;`;
+  await sql`DELETE FROM transactions;`;
+  await sql`DELETE FROM messages;`;
+  await sql`DELETE FROM groups;`;
+
+  const sequenceTable = await sql<{ name: string }[]>`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence';
+  `;
+
+  if (sequenceTable.length > 0) {
+    await sql`DELETE FROM sqlite_sequence WHERE name IN ('transactions', 'spreadsheet_sync_jobs');`;
+  }
+
+  await sql`VACUUM;`;
+
+  return {
+    deletedMessages: messageCount[0]?.total ?? 0,
+    deletedSyncJobs: syncJobCount[0]?.total ?? 0,
+    deletedTransactions: transactionCount[0]?.total ?? 0,
+  };
 };
 
 export const getTotalBalance = async () => {

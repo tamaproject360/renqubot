@@ -81,6 +81,7 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Menyiapkan deployment production Docker Compose dengan image API/Web terpisah, volume persisten `data`, env template, dan panduan deploy server.
 - DONE: Men-deploy Renqu Bot ke LXC `1012` melalui Docker Compose, menghubungkan provider OpenAI-compatible Pabrik Token, memastikan API/Web berjalan, gateway chat completion berhasil, dan database SQLite healthy dengan Bun `1.3.3`.
 - DONE: Menerapkan patch deploy production ke source lokal: Dockerfile API/Web memakai `oven/bun:1.3.3-slim`, dependency workspace ikut disalin ke image, dan default SQLite production memakai `sqlite:///app/data/baileys.db`.
+- DONE: Menambahkan command WhatsApp `/destroy` untuk mereset riwayat SQLite lokal dengan menghapus transaksi, pesan tersimpan, grup tersimpan, dan job sinkronisasi Spreadsheet, sekaligus mencoba mengosongkan Spreadsheet jika integrasi tersedia.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |
