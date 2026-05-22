@@ -1,6 +1,11 @@
 import type { IAIResponse } from '../ai';
+import { sql, type ITransaction } from '../db';
 import { logger } from '../logger';
-import { appendTransactionRowToSheet } from './client';
+import {
+  appendTransactionRowToSheet,
+  clearTransactionSheet,
+  resetTransactionSheet,
+} from './client';
 import { GCLOUD_KEY_PATH, SPREADSHEET_ID } from './config';
 import { enqueueSpreadsheetSyncJob } from './sync-queue';
 
@@ -66,4 +71,44 @@ export const saveToSheetDirect = async (data: IAIResponse) => {
 
     return false;
   }
+};
+
+export const resetSheetFromTransactions = async () => {
+  if (!SPREADSHEET_ID || !GCLOUD_KEY_PATH) {
+    throw new Error('Spreadsheet config is incomplete.');
+  }
+
+  const transactions = await sql<ITransaction[]>`
+    SELECT * FROM transactions ORDER BY date ASC, id ASC;
+  `;
+  const rows = transactions.map((transaction) => [
+    transaction.date,
+    transaction.type,
+    transaction.category,
+    transaction.amount,
+    transaction.merchant_or_sender,
+    transaction.description,
+  ]);
+
+  await resetTransactionSheet(rows);
+  await sql`UPDATE transactions SET spreadsheet_sync_status = 'synced', updated_at = unixepoch();`;
+
+  logger.info('Spreadsheet reset from local transactions', {
+    module: 'Spreadsheet',
+    totalTransactions: transactions.length,
+  });
+
+  return transactions.length;
+};
+
+export const clearSheetForFreshStart = async () => {
+  if (!SPREADSHEET_ID || !GCLOUD_KEY_PATH) {
+    throw new Error('Spreadsheet config is incomplete.');
+  }
+
+  await clearTransactionSheet();
+
+  logger.info('Spreadsheet cleared for fresh start', {
+    module: 'Spreadsheet',
+  });
 };

@@ -43,6 +43,64 @@ export const appendTransactionRowToSheet = async (
   );
 };
 
+export const resetTransactionSheet = async (
+  rows: (string | number | null)[][],
+) => {
+  const googleSheets = google.sheets({ version: 'v4', auth: auth });
+
+  await withRetry(
+    async () => {
+      await googleSheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A:F`,
+      });
+      await googleSheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A1:F${rows.length + 1}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [transactionHeaders, ...rows],
+        },
+      });
+      await formatHeaderRow(googleSheets);
+    },
+    {
+      attempts: 3,
+      baseDelayMs: 750,
+      module: 'Spreadsheet',
+      operation: 'resetTransactionSheet',
+    },
+  );
+};
+
+export const clearTransactionSheet = async () => {
+  const googleSheets = google.sheets({ version: 'v4', auth: auth });
+
+  await withRetry(
+    async () => {
+      await googleSheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A:F`,
+      });
+      await googleSheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A1:F1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [transactionHeaders],
+        },
+      });
+      await formatHeaderRow(googleSheets);
+    },
+    {
+      attempts: 3,
+      baseDelayMs: 750,
+      module: 'Spreadsheet',
+      operation: 'clearTransactionSheet',
+    },
+  );
+};
+
 const ensureTransactionSheetHeader = async (
   googleSheets: ReturnType<typeof google.sheets>,
 ) => {

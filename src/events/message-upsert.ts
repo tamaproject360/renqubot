@@ -9,6 +9,7 @@ import { generateResponse, type IBotMessage } from '../ai/ai';
 import { hasTransactionBySourceMessageId, sql } from '../db';
 import { ALLOWED_USER_IDS } from '../config';
 import { logger } from '../logger';
+import { clearSheetForFreshStart } from '../spreadsheet';
 
 const allowedIds = ALLOWED_USER_IDS;
 const allowedImageMimeTypes = new Set([
@@ -18,6 +19,7 @@ const allowedImageMimeTypes = new Set([
 ]);
 const maxImageSizeBytes = 20 * 1024 * 1024;
 const catatCommandPattern = /^\/catat(?:\s+([\s\S]+))?$/i;
+const resetCommandPattern = /^\/reset$/i;
 const catatUsageText =
   'Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
 
@@ -111,9 +113,35 @@ const handleBotMessage = async (
     return;
   }
 
-  const textCommand = parseCatatCommand(
-    msg.conversation ?? msg.extendedTextMessage?.text,
-  );
+  const textMessage = msg.conversation ?? msg.extendedTextMessage?.text;
+
+  if (resetCommandPattern.test(textMessage?.trim() ?? '')) {
+    try {
+      await clearSheetForFreshStart();
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: 'Spreadsheet berhasil direset. Sheet sudah dikosongkan dan header transaksi dibuat ulang.',
+        },
+        { quoted: message },
+      );
+    } catch (error) {
+      logger.error('Failed to reset spreadsheet from WhatsApp command', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sock.sendMessage(
+        remoteJid,
+        { text: buildProcessingErrorReply(error) },
+        { quoted: message },
+      );
+    }
+
+    return;
+  }
+
+  const textCommand = parseCatatCommand(textMessage);
   const imageCommand = parseCatatCommand(msg.imageMessage?.caption);
   const commandText = textCommand ?? imageCommand;
 

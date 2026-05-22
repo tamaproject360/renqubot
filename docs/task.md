@@ -75,6 +75,7 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Memperbaiki state wizard agar upload service account tidak mereset Spreadsheet ID, nama spreadsheet, atau nama sheet yang sedang diisi user.
 - DONE: Memperbaiki autosave wizard agar hanya menyimpan field pada step aktif dan tidak lagi mengosongkan field Spreadsheet dari step lain.
 - DONE: Menambahkan fallback backend untuk mengunci credential Google Sheets dari file JSON yang sudah ada agar tidak dianggap hilang setelah navigasi wizard.
+- DONE: Mengubah command WhatsApp `/reset` agar Spreadsheet kembali kosong dengan header baru tanpa mengisi ulang transaksi lokal.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |

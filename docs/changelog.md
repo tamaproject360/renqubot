@@ -21,6 +21,7 @@
 - Memperbaiki bug upload service account yang menimpa field Spreadsheet yang sedang diketik dengan state backend lama setelah upload berhasil.
 - Memperbaiki autosave setup wizard menjadi berbasis step agar perubahan di step AI/General tidak menimpa nilai Spreadsheet yang sudah tersimpan.
 - Menambahkan fallback backend agar service account path otomatis memakai file JSON yang sudah ada di `data/credentials` dan tidak mudah terhapus oleh patch config kosong.
+- Mengubah command WhatsApp `/reset` agar hanya mengosongkan sheet dan menulis ulang header, tanpa mengisi ulang transaksi lokal SQLite.
 
 ## 2026-05-21
 
