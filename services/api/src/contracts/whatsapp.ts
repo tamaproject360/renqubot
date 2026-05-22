@@ -8,5 +8,6 @@ export interface IWhatsappStatus {
 
 export interface IWhatsappQrResponse {
   qr: string | null;
+  qrSvg: string | null;
   expiresAt: string | null;
 }

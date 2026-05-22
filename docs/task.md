@@ -61,6 +61,20 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Menghapus vendor lock-in runtime Gemini dengan menambahkan adapter runtime untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider seperti DeepSeek, Kimi, OpenRouter, PabrikToken, atau LiteLLM.
 - DONE: Menambahkan fallback OpenAI-compatible tanpa `response_format` agar gateway/model yang belum mendukung JSON mode eksplisit tetap bisa dipakai.
 - DONE: Mengubah alur WhatsApp agar pencatatan pemasukan/pengeluaran hanya berjalan jika pesan diawali `/catat`, termasuk dukungan chat ke diri sendiri pada nomor pribadi.
+- DONE: Menata port development agar frontend memakai `3000` atau fallback `3002`, backend tetap `3001`, dan CORS dev tidak memblokir origin lokal.
+- DONE: Memperbaiki UI WhatsApp QR agar string QR dari runtime dirender sebagai SVG QR code, bukan teks panjang.
+- DONE: Memperbaiki state setup wizard agar konfigurasi tersimpan dimuat ulang dari backend dan scan QR WhatsApp tersedia langsung dalam flow wizard awal.
+- DONE: Menambahkan modal “Selamat, Bot Sudah Nyala” dengan animasi konfeti setelah runtime berhasil dinyalakan dari wizard.
+- DONE: Memperkuat error handling provider AI agar kegagalan `/catat` pada mode development menampilkan detail penyebab tanpa hanya pesan generik.
+- DONE: Mengubah start runtime agar proses bot lama direstart saat user klik `Simpan & Nyalakan Bot`, sehingga config/model terbaru benar-benar dipakai.
+- DONE: Merapikan wizard agar start bot/scan QR terjadi di step WhatsApp, konfeti muncul hanya saat connected, dan Review cukup menyimpan setup.
+- DONE: Memperjelas pesan error WhatsApp saat provider AI tidak bisa diakses dari runtime bot.
+- DONE: Mengubah setup service account dari textarea manual menjadi upload file JSON dan menjalankan retry sinkronisasi Spreadsheet setelah upload.
+- DONE: Memperketat validasi config agar setup tidak dianggap lengkap jika service account Google Sheets belum diupload.
+- DONE: Memperbaiki upload service account wizard agar file langsung dikirim ke backend saat dipilih dan `serviceAccountPath` langsung tersimpan.
+- DONE: Memperbaiki state wizard agar upload service account tidak mereset Spreadsheet ID, nama spreadsheet, atau nama sheet yang sedang diisi user.
+- DONE: Memperbaiki autosave wizard agar hanya menyimpan field pada step aktif dan tidak lagi mengosongkan field Spreadsheet dari step lain.
+- DONE: Menambahkan fallback backend untuk mengunci credential Google Sheets dari file JSON yang sudah ada agar tidak dianggap hilang setelah navigasi wizard.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |

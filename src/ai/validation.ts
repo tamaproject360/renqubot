@@ -14,14 +14,34 @@ const transactionTypes = new Set(['PENGELUARAN', 'PEMASUKAN']);
  * Parse dan validasi response JSON model agar data tidak langsung masuk DB tanpa schema guard.
  */
 export const parseAiResponse = (raw: string): IAIValidationResult => {
+  const jsonText = extractJsonPayload(raw);
+
   try {
-    return validateAiResponse(JSON.parse(raw));
+    return validateAiResponse(JSON.parse(jsonText));
   } catch (error) {
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Invalid JSON response',
     };
   }
+};
+
+const extractJsonPayload = (raw: string) => {
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
 };
 
 /**
@@ -46,7 +66,9 @@ export const normalizeTransactionDate = (
   }
 
   const parsedDate = date ? new Date(date) : fallbackDate;
-  const safeDate = Number.isNaN(parsedDate.getTime()) ? fallbackDate : parsedDate;
+  const safeDate = Number.isNaN(parsedDate.getTime())
+    ? fallbackDate
+    : parsedDate;
 
   return new Intl.DateTimeFormat('sv-SE', {
     year: 'numeric',
@@ -69,7 +91,10 @@ const validateAiResponse = (value: unknown): IAIValidationResult => {
     return { data: null, error: 'reply_text must be a non-empty string' };
   }
 
-  const confidence = normalizeConfidence(value.confidence, value.is_transaction);
+  const confidence = normalizeConfidence(
+    value.confidence,
+    value.is_transaction,
+  );
 
   if (!value.is_transaction) {
     return {

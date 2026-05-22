@@ -7,6 +7,20 @@
 - Menambahkan dukungan runtime bot multi-provider untuk Gemini, OpenAI, Anthropic, dan OpenAI-compatible provider seperti DeepSeek, Kimi, OpenRouter, PabrikToken, atau LiteLLM.
 - Menambahkan fallback request OpenAI-compatible tanpa `response_format` jika provider/gateway tidak mendukung JSON mode eksplisit.
 - Mengubah handler WhatsApp agar pencatatan transaksi hanya diproses lewat command `/catat`, termasuk pesan dari akun sendiri untuk skenario nomor pribadi.
+- Mengunci script frontend default ke port `3000`, menambahkan fallback `dev:frontend:3002`, dan mengatur CORS dev backend agar tidak bentrok saat Next.js mencoba memakai port `3001`.
+- Memperbaiki tampilan QR WhatsApp dengan mengubah QR mentah dari runtime menjadi SVG di backend dan merendernya sebagai gambar di UI.
+- Memperbaiki setup wizard agar memuat ulang draft konfigurasi tersimpan dari backend, tidak memaksa input ulang API key yang secret-nya sudah ada, dan menampilkan scan QR WhatsApp langsung di step onboarding.
+- Menambahkan modal sukses dengan animasi konfeti setelah bot runtime berhasil dinyalakan dari setup wizard.
+- Memperkuat parsing response AI provider OpenAI-compatible agar response markdown-fenced/non-JSON lebih mudah ditangani dan error development lebih jelas saat `/catat` gagal.
+- Mengubah aksi start bot runtime agar me-restart proses lama terlebih dahulu, sehingga konfigurasi dan kode terbaru aktif setelah klik `Simpan & Nyalakan Bot`.
+- Merapikan flow wizard: QR muncul setelah tombol start di step WhatsApp, modal konfeti hanya muncul setelah WhatsApp connected, dan step Review memakai tombol `Simpan Setup` tanpa menyalakan ulang bot.
+- Memperjelas balasan WhatsApp saat provider AI tidak bisa diakses agar user tahu perlu mengecek Base URL/port/koneksi gateway provider.
+- Mengubah input service account Google Sheets di setup wizard menjadi upload file `.json` dan otomatis retry antrean Spreadsheet setelah credential berhasil disimpan.
+- Memperketat validasi setup agar Spreadsheet ID dan service account path dianggap wajib sebelum konfigurasi dinyatakan lengkap.
+- Memperbaiki upload service account agar file langsung disimpan saat dipilih, state wizard diperbarui dari response backend, dan user tidak perlu menunggu klik `Next` untuk mengirim credential.
+- Memperbaiki bug upload service account yang menimpa field Spreadsheet yang sedang diketik dengan state backend lama setelah upload berhasil.
+- Memperbaiki autosave setup wizard menjadi berbasis step agar perubahan di step AI/General tidak menimpa nilai Spreadsheet yang sudah tersimpan.
+- Menambahkan fallback backend agar service account path otomatis memakai file JSON yang sudah ada di `data/credentials` dan tidak mudah terhapus oleh patch config kosong.
 
 ## 2026-05-21
 

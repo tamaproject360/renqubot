@@ -43,7 +43,7 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 6. Test koneksi provider AI, database, dan spreadsheet
 7. Dashboard ringkas transaksi dan health sistem
 8. Secure config management dan audit trail
-9. Setup wizard multi-step
+9. Setup wizard multi-step dengan draft konfigurasi persisten dan scan QR WhatsApp inline saat onboarding awal
 10. Operational admin console
 11. Dukungan multi-provider AI inference
 12. Pemilihan model per provider dan custom base URL untuk provider OpenAI-compatible
@@ -280,7 +280,7 @@ bun run format
 
 Backend service baru berada di `services/api` dan berjalan di port `API_PORT` atau default `3001`. Seluruh response API menggunakan envelope konsisten:
 
-Backend API mengizinkan akses CORS dari frontend admin Next.js melalui `API_CORS_ORIGIN` atau default `http://localhost:3000`, termasuk preflight `OPTIONS` untuk request JSON dari browser.
+Backend API mengizinkan akses CORS dari frontend admin Next.js melalui `API_CORS_ORIGIN` atau default `*` untuk development lokal, termasuk preflight `OPTIONS` untuk request JSON dari browser. Frontend default berjalan di port `3000`, backend di `3001`, dan frontend fallback development yang disediakan adalah `3002` agar Next.js tidak mengambil port backend.
 
 ```json
 {

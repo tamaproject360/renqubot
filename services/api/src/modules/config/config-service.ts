@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ZodError } from 'zod';
 import {
@@ -50,6 +50,10 @@ const mergeConfig = (
   current: IAppConfig,
   patch: IPartialAppConfig,
 ): IAppConfig => {
+  const serviceAccountPath =
+    patch.spreadsheet?.serviceAccountPath ||
+    current.spreadsheet.serviceAccountPath;
+
   return appConfigSchema.parse({
     ...current,
     ...patch,
@@ -80,12 +84,24 @@ const mergeConfig = (
     spreadsheet: {
       ...current.spreadsheet,
       ...patch.spreadsheet,
+      serviceAccountPath,
     },
     whatsapp: {
       ...current.whatsapp,
       ...patch.whatsapp,
     },
   });
+};
+
+const findExistingCredentialPath = async () => {
+  try {
+    const files = await readdir(CREDENTIALS_DIR);
+    const credentialFile = files.find((file) => file.endsWith('.json'));
+
+    return credentialFile ? join(CREDENTIALS_DIR, credentialFile) : '';
+  } catch (error) {
+    return '';
+  }
 };
 
 const maskSecret = (value: string) => {
@@ -110,9 +126,27 @@ export class ConfigService {
       CONFIG_PATH,
       {},
     );
-    return appConfigSchema.parse({
+    const config = appConfigSchema.parse({
       ...defaultConfig,
       ...storedConfig,
+    });
+
+    if (config.spreadsheet.serviceAccountPath) {
+      return config;
+    }
+
+    const existingCredentialPath = await findExistingCredentialPath();
+
+    if (!existingCredentialPath) {
+      return config;
+    }
+
+    return appConfigSchema.parse({
+      ...config,
+      spreadsheet: {
+        ...config.spreadsheet,
+        serviceAccountPath: existingCredentialPath,
+      },
     });
   }
 
@@ -248,6 +282,14 @@ export class ConfigService {
 
     if (!config.database.url) {
       missingFields.push('database.url');
+    }
+
+    if (!config.spreadsheet.spreadsheetId) {
+      missingFields.push('spreadsheet.spreadsheetId');
+    }
+
+    if (!config.spreadsheet.serviceAccountPath) {
+      missingFields.push('spreadsheet.serviceAccountPath');
     }
 
     return missingFields;

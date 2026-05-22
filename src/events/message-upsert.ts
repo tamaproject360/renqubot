@@ -31,6 +31,20 @@ const parseCatatCommand = (value?: string | null) => {
   return match[1]?.trim() ?? '';
 };
 
+const buildProcessingErrorReply = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.toLowerCase().includes('unable to connect')) {
+    return 'Maaf, provider AI belum bisa diakses dari server bot. Periksa Base URL, port, koneksi internet, atau status gateway provider di setup.';
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return 'Maaf, terjadi kesalahan saat memproses permintaan Anda.';
+  }
+
+  return `Maaf, terjadi kesalahan saat memproses permintaan Anda. Detail dev: ${message}`;
+};
+
 export const messageUpsert = async (sock: WASocket, message: WAMessage) => {
   const keyId = message.key.id;
   const remoteJid = message.key.remoteJid;
@@ -233,7 +247,7 @@ const handleBotMessage = async (
       });
       await sock.sendMessage(
         remoteJid,
-        { text: 'Maaf, terjadi kesalahan saat memproses permintaan Anda.' },
+        { text: buildProcessingErrorReply(error) },
         { quoted: message },
       );
     }

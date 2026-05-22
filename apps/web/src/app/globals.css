@@ -423,7 +423,11 @@ select {
 }
 
 .wizard-progress span {
-  background: linear-gradient(90deg, var(--color-blue-800), var(--color-blue-600));
+  background: linear-gradient(
+    90deg,
+    var(--color-blue-800),
+    var(--color-blue-600)
+  );
   display: block;
   height: 100%;
   transition: width 180ms ease;
@@ -530,6 +534,100 @@ select {
   text-align: center;
 }
 
+.qr-panel__content {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  max-width: 100%;
+}
+
+.qr-panel__image {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(9, 36, 95, 0.14);
+  height: min(280px, 70vw);
+  padding: 14px;
+  width: min(280px, 70vw);
+}
+
+.qr-panel--wizard {
+  min-height: 360px;
+}
+
+.wizard-whatsapp-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1fr);
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(9, 36, 95, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 50;
+}
+
+.success-modal {
+  background: #ffffff;
+  border-radius: 28px;
+  box-shadow: 0 24px 80px rgba(9, 36, 95, 0.28);
+  display: grid;
+  gap: 16px;
+  max-width: 520px;
+  overflow: hidden;
+  padding: 34px;
+  position: relative;
+  text-align: center;
+  width: min(520px, 100%);
+}
+
+.success-modal__icon {
+  align-items: center;
+  background: linear-gradient(135deg, #10b981, #22c55e);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 36px;
+  font-weight: 900;
+  height: 74px;
+  justify-content: center;
+  justify-self: center;
+  width: 74px;
+}
+
+.confetti span {
+  animation: confetti-fall var(--duration) ease-out infinite;
+  animation-delay: var(--delay);
+  background: hsl(var(--hue), 82%, 56%);
+  border-radius: 4px;
+  height: 12px;
+  left: var(--x);
+  position: absolute;
+  top: -24px;
+  transform: rotate(calc(var(--i) * 18deg));
+  width: 8px;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) rotate(0deg);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(460px) rotate(420deg);
+  }
+}
+
 @media (max-width: 860px) {
   .app-shell,
   .app-shell--collapsed {
@@ -549,6 +647,10 @@ select {
   }
 
   .wizard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-whatsapp-grid {
     grid-template-columns: 1fr;
   }
 

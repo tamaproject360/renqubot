@@ -1,7 +1,7 @@
 import { ZodError } from 'zod';
 import { errorEnvelope, successEnvelope } from '../contracts/api';
 
-const corsOrigin = Bun.env.API_CORS_ORIGIN ?? 'http://localhost:3000';
+const corsOrigin = Bun.env.API_CORS_ORIGIN ?? '*';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': corsOrigin,

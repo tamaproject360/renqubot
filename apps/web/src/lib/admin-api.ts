@@ -28,7 +28,15 @@ export interface IWhatsappStatus {
 
 export interface IWhatsappQrResponse {
   qr: string | null;
+  qrSvg: string | null;
   expiresAt: string | null;
+}
+
+export interface ISecretMeta {
+  key: string;
+  provider: string;
+  maskedValue: string;
+  updatedAt: string;
 }
 
 export interface IConfigPatch {
@@ -66,6 +74,17 @@ export interface IConfigPatch {
   };
 }
 
+export interface IConfigStatus {
+  config: Required<IConfigPatch>;
+  valid: boolean;
+  missingFields: string[];
+  fieldIssues: Array<{
+    field: string;
+    message: string;
+  }>;
+  secrets: ISecretMeta[];
+}
+
 export interface IBotRuntimeStatus {
   state: 'stopped' | 'running';
   pid: number | null;
@@ -101,6 +120,10 @@ export const saveConfigDraft = (payload: IConfigPatch) => {
   });
 };
 
+export const getConfigStatus = () => {
+  return fetchApi<IConfigStatus>('/api/config');
+};
+
 export const saveSecret = (payload: { key: string; value: string }) => {
   return fetchApi('/api/config/secrets', {
     method: 'PATCH',
@@ -112,9 +135,15 @@ export const uploadGoogleServiceAccount = (payload: {
   fileName: string;
   content: string;
 }) => {
-  return fetchApi('/api/config/google-service-account', {
+  return fetchApi<IConfigStatus>('/api/config/google-service-account', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+};
+
+export const retrySpreadsheetSyncJobs = () => {
+  return fetchApi('/api/spreadsheet-sync/retry', {
+    method: 'POST',
   });
 };
 

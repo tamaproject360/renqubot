@@ -77,6 +77,18 @@ const joinUrl = (baseUrl: string, path: string) => {
   return `${baseUrl.replace(/\/$/, '')}${path}`;
 };
 
+const readJsonResponse = async <T>(response: Response) => {
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    throw new Error(
+      `Provider returned non-JSON response (${response.status}): ${text.slice(0, 240)}`,
+    );
+  }
+};
+
 const buildContextualSystemInstruction = async () => {
   const dailySummary = await getDailySummary();
   const totalBalance = await getTotalBalance();
@@ -220,11 +232,11 @@ const generateOpenAICompatibleContent = async (
   };
 
   let response = await sendRequest(true);
-  let data = (await response.json()) as IOpenAIChatResponse;
+  let data = await readJsonResponse<IOpenAIChatResponse>(response);
 
   if (!response.ok && data.error?.message?.includes('response_format')) {
     response = await sendRequest(false);
-    data = (await response.json()) as IOpenAIChatResponse;
+    data = await readJsonResponse<IOpenAIChatResponse>(response);
   }
 
   if (!response.ok) {

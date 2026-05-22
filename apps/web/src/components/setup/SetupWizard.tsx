@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { FormField } from "@/components/ui/FormField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { WizardStepper } from "@/components/ui/WizardStepper";
 import {
+  getConfigStatus,
+  getWhatsappQr,
+  getWhatsappStatus,
+  retrySpreadsheetSyncJobs,
   saveConfigDraft,
   saveSecret,
   startBotRuntime,
   uploadGoogleServiceAccount,
   type IConfigPatch,
+  type IConfigStatus,
+  type IWhatsappQrResponse,
+  type IWhatsappStatus,
 } from "@/lib/admin-api";
 
 const steps = [
@@ -55,6 +62,7 @@ interface ISetupFormState {
   sheetName: string;
   serviceAccountFileName: string;
   serviceAccountContent: string;
+  serviceAccountPath: string;
 }
 
 const initialForm: ISetupFormState = {
@@ -76,6 +84,7 @@ const initialForm: ISetupFormState = {
   sheetName: "Logs",
   serviceAccountFileName: "google-service-account.json",
   serviceAccountContent: "",
+  serviceAccountPath: "",
 };
 
 const providerLabels: Record<string, string> = {
@@ -91,7 +100,86 @@ export function SetupWizard() {
   const [saveState, setSaveState] = useState("Belum ada perubahan");
   const [stepError, setStepError] = useState<string | null>(null);
   const [runtimeState, setRuntimeState] = useState<string | null>(null);
+  const [savedSecretKeys, setSavedSecretKeys] = useState<string[]>([]);
+  const [whatsappStatus, setWhatsappStatus] = useState<IWhatsappStatus | null>(
+    null,
+  );
+  const [whatsappQr, setWhatsappQr] = useState<IWhatsappQrResponse | null>(
+    null,
+  );
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [waitingForWhatsappOpen, setWaitingForWhatsappOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadDraft = async () => {
+      try {
+        setSaveState("Memuat draft tersimpan...");
+        const status = await getConfigStatus();
+
+        if (!active) {
+          return;
+        }
+
+        setForm(buildFormFromConfigStatus(status));
+        setSavedSecretKeys(status.secrets.map((secret) => secret.key));
+        setSaveState("Draft tersimpan dimuat.");
+      } catch (error) {
+        if (active) {
+          setSaveState(
+            error instanceof Error ? error.message : "Gagal memuat draft.",
+          );
+        }
+      }
+    };
+
+    loadDraft();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshWhatsapp = async () => {
+      try {
+        const [nextStatus, nextQr] = await Promise.all([
+          getWhatsappStatus(),
+          getWhatsappQr(),
+        ]);
+
+        if (active) {
+          setWhatsappStatus(nextStatus);
+          setWhatsappQr(nextQr);
+        }
+      } catch (error) {
+        if (active) {
+          setWhatsappStatus(null);
+          setWhatsappQr(null);
+        }
+      }
+    };
+
+    refreshWhatsapp();
+    const interval = window.setInterval(refreshWhatsapp, 5000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (waitingForWhatsappOpen && whatsappStatus?.connection === "open") {
+      setRuntimeState("Bot runtime dan WhatsApp sudah terhubung.");
+      setSuccessModalOpen(true);
+      setWaitingForWhatsappOpen(false);
+    }
+  }, [waitingForWhatsappOpen, whatsappStatus?.connection]);
 
   useEffect(() => {
     if (!dirty) {
@@ -101,7 +189,7 @@ export function SetupWizard() {
     const timeout = window.setTimeout(async () => {
       try {
         setSaveState("Auto-save draft...");
-        await saveConfigDraft(buildConfigPatch(form));
+        await saveConfigDraft(buildConfigPatch(form, activeStep));
         setSaveState(
           `Draft tersimpan ${new Date().toLocaleTimeString("id-ID")}`,
         );
@@ -122,8 +210,60 @@ export function SetupWizard() {
     setDirty(true);
   };
 
+  const uploadServiceAccountFile = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.name.endsWith(".json")) {
+      setStepError(
+        "Service account harus berupa file .json dari Google Cloud.",
+      );
+      return;
+    }
+
+    try {
+      setSaveState("Mengupload service account...");
+      const content = await file.text();
+      JSON.parse(content);
+
+      const nextForm = {
+        ...form,
+        serviceAccountFileName: file.name,
+        serviceAccountContent: content,
+      };
+
+      await saveConfigDraft(buildConfigPatch(nextForm, 2));
+      const status = await uploadGoogleServiceAccount({
+        fileName: file.name,
+        content,
+      });
+      await retrySpreadsheetSyncJobs();
+
+      const savedCredentialPath =
+        status.config.spreadsheet.serviceAccountPath ?? "";
+
+      setForm({
+        ...nextForm,
+        providerApiKey: form.providerApiKey,
+        serviceAccountContent: "",
+        serviceAccountPath: savedCredentialPath,
+      });
+      setStepError(null);
+      setDirty(false);
+      setSaveState("Service account tersimpan dan sync Spreadsheet diretry.");
+    } catch (error) {
+      setStepError(
+        error instanceof Error
+          ? error.message
+          : "File service account JSON tidak valid.",
+      );
+      setSaveState("Upload service account gagal.");
+    }
+  };
+
   const goNext = async () => {
-    const error = validateStep(activeStep, form);
+    const error = validateStep(activeStep, form, savedSecretKeys);
 
     if (error) {
       setStepError(error);
@@ -132,7 +272,12 @@ export function SetupWizard() {
 
     try {
       setSaveState("Menyimpan step...");
-      await persistCurrentStep(activeStep, form);
+      const nextSecretKeys = await persistCurrentStep(
+        activeStep,
+        form,
+        savedSecretKeys,
+      );
+      setSavedSecretKeys(nextSecretKeys);
       setSaveState("Step tersimpan.");
       setActiveStep((current) => Math.min(current + 1, steps.length - 1));
       setStepError(null);
@@ -151,7 +296,7 @@ export function SetupWizard() {
   };
 
   const handleStartBot = async () => {
-    const error = validateAll(form);
+    const error = validateAll(form, savedSecretKeys);
 
     if (error) {
       setStepError(error);
@@ -160,17 +305,68 @@ export function SetupWizard() {
 
     try {
       setRuntimeState("Menyalakan bot runtime...");
-      await persistCurrentStep(activeStep, form);
+      setSuccessModalOpen(false);
+      setWaitingForWhatsappOpen(false);
+      const nextSecretKeys = await persistCurrentStep(
+        activeStep,
+        form,
+        savedSecretKeys,
+      );
+      setSavedSecretKeys(nextSecretKeys);
       const status = await startBotRuntime();
       setRuntimeState(
         `${status.message}${status.pid ? ` PID ${status.pid}` : ""}`,
       );
+      setWaitingForWhatsappOpen(true);
+
+      const [nextStatus, nextQr] = await Promise.all([
+        getWhatsappStatus(),
+        getWhatsappQr(),
+      ]);
+      setWhatsappStatus(nextStatus);
+      setWhatsappQr(nextQr);
     } catch (error) {
+      setWaitingForWhatsappOpen(false);
       setRuntimeState(
         error instanceof Error
           ? error.message
           : "Gagal menyalakan bot runtime.",
       );
+    }
+  };
+
+  const handleSaveSetup = async () => {
+    const error = validateAll(form, savedSecretKeys);
+
+    if (error) {
+      setStepError(error);
+      return;
+    }
+
+    try {
+      setSaveState("Menyimpan setup...");
+      await saveConfigDraft(buildConfigPatch(form, "all"));
+      let nextSecretKeys = savedSecretKeys;
+
+      if (form.providerApiKey.trim()) {
+        const key = getActiveSecretKey(form.activeAiProvider);
+
+        await saveSecret({
+          key,
+          value: form.providerApiKey.trim(),
+        });
+        nextSecretKeys = Array.from(new Set([...savedSecretKeys, key]));
+      }
+
+      setSavedSecretKeys(nextSecretKeys);
+      setSaveState("Setup tersimpan.");
+      setStepError(null);
+      setDirty(false);
+    } catch (error) {
+      setStepError(
+        error instanceof Error ? error.message : "Gagal menyimpan setup.",
+      );
+      setSaveState("Gagal menyimpan setup.");
     }
   };
 
@@ -204,7 +400,14 @@ export function SetupWizard() {
           {stepError ? <p className="form-error">{stepError}</p> : null}
 
           <div className="wizard-panel">
-            {renderStep(activeStep, form, updateField)}
+            {renderStep(activeStep, form, updateField, {
+              onServiceAccountFile: uploadServiceAccountFile,
+              onStartBot: handleStartBot,
+              qr: whatsappQr,
+              runtimeState,
+              status: whatsappStatus,
+              waitingForConnection: waitingForWhatsappOpen,
+            })}
           </div>
 
           <div className="wizard-actions">
@@ -227,10 +430,10 @@ export function SetupWizard() {
             ) : (
               <button
                 className="button button--primary"
-                onClick={handleStartBot}
+                onClick={handleSaveSetup}
                 type="button"
               >
-                Simpan & Nyalakan Bot
+                Simpan Setup
               </button>
             )}
           </div>
@@ -238,14 +441,90 @@ export function SetupWizard() {
           {runtimeState ? <p className="card__meta">{runtimeState}</p> : null}
         </SectionCard>
       </div>
+
+      {successModalOpen ? (
+        <SuccessModal
+          connection={whatsappStatus?.connection ?? "unknown"}
+          onClose={() => setSuccessModalOpen(false)}
+          runtimeState={runtimeState}
+        />
+      ) : null}
     </>
   );
+}
+
+function SuccessModal({
+  connection,
+  onClose,
+  runtimeState,
+}: {
+  connection: string;
+  onClose: () => void;
+  runtimeState: string | null;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        aria-labelledby="bot-success-title"
+        aria-modal="true"
+        className="success-modal"
+        role="dialog"
+      >
+        <div className="confetti" aria-hidden="true">
+          {Array.from({ length: 28 }).map((_, index) => (
+            <span
+              key={index}
+              style={
+                {
+                  "--delay": `${(index % 9) * 0.12}s`,
+                  "--duration": `${1.4 + (index % 5) * 0.16}s`,
+                  "--hue": `${index * 37}`,
+                  "--x": `${(index * 37) % 100}%`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        <div className="success-modal__icon">✓</div>
+        <h2 id="bot-success-title">Selamat, Bot Sudah Nyala</h2>
+        <p>
+          Runtime bot aktif dan siap menerima command WhatsApp dengan format
+          <strong> /catat</strong>.
+        </p>
+        <div className="review-item">
+          <span>Status runtime</span>
+          <strong>{runtimeState ?? "Bot runtime berjalan."}</strong>
+        </div>
+        <div className="review-item">
+          <span>Status WhatsApp</span>
+          <strong>{connection}</strong>
+        </div>
+        <button
+          className="button button--primary"
+          onClick={onClose}
+          type="button"
+        >
+          Lanjut Pakai Bot
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface IRenderStepContext {
+  onServiceAccountFile: (file: File | null) => void;
+  onStartBot: () => void;
+  qr: IWhatsappQrResponse | null;
+  runtimeState: string | null;
+  status: IWhatsappStatus | null;
+  waitingForConnection: boolean;
 }
 
 const renderStep = (
   step: number,
   form: ISetupFormState,
   updateField: (field: keyof ISetupFormState, value: string) => void,
+  context: IRenderStepContext,
 ) => {
   if (step === 0) {
     return (
@@ -358,30 +637,24 @@ const renderStep = (
           />
         </FormField>
         <FormField
-          label="Service Account File Name"
-          hint="Contoh: google-service-account.json. File akan disimpan di data/credentials."
+          label="Upload Service Account JSON"
+          hint="Upload file .json yang diunduh dari Google Cloud Console. File akan disimpan di data/credentials."
         >
           <input
+            accept="application/json,.json"
             className="input"
-            placeholder="google-service-account.json"
-            value={form.serviceAccountFileName}
+            type="file"
             onChange={(event) =>
-              updateField("serviceAccountFileName", event.target.value)
+              context.onServiceAccountFile(event.target.files?.[0] ?? null)
             }
           />
-        </FormField>
-        <FormField
-          label="Service Account JSON"
-          hint='Contoh: { "type": "service_account", "project_id": "renqu-bot" }. Paste isi JSON credential dari Google Cloud.'
-        >
-          <textarea
-            className="textarea"
-            placeholder='{ "type": "service_account", "project_id": "renqu-bot", "private_key": "..." }'
-            value={form.serviceAccountContent}
-            onChange={(event) =>
-              updateField("serviceAccountContent", event.target.value)
-            }
-          />
+          <p className="card__meta">
+            {form.serviceAccountContent
+              ? `File siap diupload: ${form.serviceAccountFileName}`
+              : form.serviceAccountPath
+                ? `Credential tersimpan: ${form.serviceAccountPath}`
+                : "Belum ada service account tersimpan."}
+          </p>
         </FormField>
       </div>
     );
@@ -389,17 +662,38 @@ const renderStep = (
 
   if (step === 3) {
     return (
-      <div className="wizard-callout">
-        <h3>WhatsApp Session</h3>
-        <p>
-          Setelah bot runtime dinyalakan di step Review, buka halaman WhatsApp
-          untuk melihat QR dan scan dengan akun WhatsApp yang akan dipakai bot.
-        </p>
-        <p className="card__meta">
-          Contoh alur: klik Simpan & Nyalakan Bot, buka menu WhatsApp, scan QR,
-          lalu kirim pesan seperti "Beli gorengan 10000" dari nomor yang
-          diizinkan.
-        </p>
+      <div className="wizard-whatsapp-grid">
+        <div className="wizard-callout">
+          <h3>Scan QR WhatsApp</h3>
+          <p>
+            Klik tombol di bawah untuk menyalakan runtime bot, lalu scan QR di
+            panel sebelah tanpa pindah ke menu WhatsApp.
+          </p>
+          <p className="card__meta">
+            Setelah tersambung, catat transaksi dengan format /catat beli makan
+            25000. Menu WhatsApp tetap tersedia untuk reset session atau ganti
+            device/nomor nanti.
+          </p>
+          <button
+            className="button button--primary"
+            onClick={context.onStartBot}
+            type="button"
+          >
+            Nyalakan Bot & Tampilkan QR
+          </button>
+          {context.runtimeState ? (
+            <p className="card__meta">{context.runtimeState}</p>
+          ) : null}
+          {context.waitingForConnection ? (
+            <p className="card__meta">
+              Menunggu WhatsApp connected. Confetti akan muncul setelah status
+              berubah menjadi open.
+            </p>
+          ) : null}
+          <StatusSummary status={context.status} />
+        </div>
+
+        <QrPreview qr={context.qr} />
       </div>
     );
   }
@@ -563,18 +857,49 @@ function ReviewStep({ form }: { form: ISetupFormState }) {
         value={
           form.serviceAccountContent
             ? form.serviceAccountFileName
-            : "Belum diupload"
+            : form.serviceAccountPath || "Belum diupload"
         }
       />
       <ReviewItem
         label="Bot Runtime"
-        value="Klik tombol Simpan & Nyalakan Bot untuk menjalankan runtime."
+        value="Runtime dinyalakan dan QR discan pada step WhatsApp. Review ini hanya menyimpan setup."
       />
       <p className="card__meta">
         Runtime dapat memakai Gemini, OpenAI, Anthropic, atau provider
         OpenAI-compatible seperti DeepSeek, Kimi, OpenRouter, dan PabrikToken
         selama model/base URL/API key valid.
       </p>
+    </div>
+  );
+}
+
+function StatusSummary({ status }: { status: IWhatsappStatus | null }) {
+  return (
+    <div className="review-item">
+      <span>Status WhatsApp</span>
+      <strong>{status?.connection ?? "unknown"}</strong>
+    </div>
+  );
+}
+
+function QrPreview({ qr }: { qr: IWhatsappQrResponse | null }) {
+  return (
+    <div className="qr-panel qr-panel--wizard">
+      <div className="qr-panel__content">
+        <strong>{qr?.qrSvg ? "QR aktif tersedia" : "QR belum tersedia"}</strong>
+        <p className="card__meta">
+          {qr?.expiresAt
+            ? `QR berlaku sampai ${qr.expiresAt}`
+            : "Klik tombol start lalu tunggu polling 5 detik."}
+        </p>
+        {qr?.qrSvg ? (
+          <img
+            alt="QR login WhatsApp"
+            className="qr-panel__image"
+            src={`data:image/svg+xml;utf8,${encodeURIComponent(qr.qrSvg)}`}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -594,14 +919,22 @@ function ReviewItem({
   );
 }
 
-const persistCurrentStep = async (step: number, form: ISetupFormState) => {
-  await saveConfigDraft(buildConfigPatch(form));
+const persistCurrentStep = async (
+  step: number,
+  form: ISetupFormState,
+  savedSecretKeys: string[],
+) => {
+  await saveConfigDraft(buildConfigPatch(form, step));
+  let nextSecretKeys = savedSecretKeys;
 
   if (step === 1 && form.providerApiKey.trim()) {
+    const key = getActiveSecretKey(form.activeAiProvider);
+
     await saveSecret({
-      key: getActiveSecretKey(form.activeAiProvider),
+      key,
       value: form.providerApiKey.trim(),
     });
+    nextSecretKeys = Array.from(new Set([...savedSecretKeys, key]));
   }
 
   if (step === 2 && form.serviceAccountContent.trim()) {
@@ -610,25 +943,42 @@ const persistCurrentStep = async (step: number, form: ISetupFormState) => {
         form.serviceAccountFileName.trim() || "google-service-account.json",
       content: form.serviceAccountContent.trim(),
     });
+    await retrySpreadsheetSyncJobs();
   }
+
+  return nextSecretKeys;
 };
 
-const buildConfigPatch = (form: ISetupFormState): IConfigPatch => {
-  const patch: IConfigPatch = {
-    activeAiProvider: form.activeAiProvider,
-    ai: {},
-    database: {
+const buildConfigPatch = (
+  form: ISetupFormState,
+  step: number | "all" = "all",
+): IConfigPatch => {
+  const patch: IConfigPatch = {};
+
+  if (step === 0 || step === "all") {
+    patch.activeAiProvider = form.activeAiProvider;
+    patch.database = {
       url: form.databaseUrl,
-    },
-    spreadsheet: {
+    };
+    patch.whatsapp = {
+      allowedUserIds: splitAllowedUsers(form.allowedUserIds),
+    };
+  }
+
+  if (step === 2 || step === "all") {
+    patch.spreadsheet = {
       spreadsheetId: form.spreadsheetId,
       spreadsheetName: form.spreadsheetName,
       sheetName: form.sheetName,
-    },
-    whatsapp: {
-      allowedUserIds: splitAllowedUsers(form.allowedUserIds),
-    },
-  };
+    };
+  }
+
+  if (step !== 1 && step !== "all") {
+    return patch;
+  }
+
+  patch.activeAiProvider = form.activeAiProvider;
+  patch.ai = {};
 
   if (form.activeAiProvider === "openai") {
     patch.ai = {
@@ -670,7 +1020,11 @@ const buildConfigPatch = (form: ISetupFormState): IConfigPatch => {
   return patch;
 };
 
-const validateStep = (step: number, form: ISetupFormState) => {
+const validateStep = (
+  step: number,
+  form: ISetupFormState,
+  savedSecretKeys: string[],
+) => {
   if (step === 0) {
     if (!form.databaseUrl.trim()) {
       return "Database URL wajib diisi. Contoh: file:./data/baileys.db";
@@ -697,14 +1051,25 @@ const validateStep = (step: number, form: ISetupFormState) => {
       return "Custom Base URL wajib diisi untuk OpenAI-compatible. Contoh: https://openrouter.ai/api/v1";
     }
 
-    if (!form.providerApiKey.trim()) {
+    if (
+      !form.providerApiKey.trim() &&
+      !savedSecretKeys.includes(getActiveSecretKey(form.activeAiProvider))
+    ) {
       return "API key provider aktif wajib diisi agar bot bisa memproses pesan.";
     }
   }
 
   if (step === 2) {
+    if (!form.spreadsheetId.trim()) {
+      return "Spreadsheet ID wajib diisi agar transaksi bisa masuk ke Google Sheets.";
+    }
+
     if (!form.sheetName.trim()) {
       return "Sheet Tab Name wajib diisi. Contoh: Logs";
+    }
+
+    if (!form.serviceAccountPath && !form.serviceAccountContent.trim()) {
+      return "Upload file service account JSON wajib dilakukan agar transaksi bisa masuk ke Google Sheets.";
     }
 
     if (form.serviceAccountContent.trim()) {
@@ -719,9 +1084,9 @@ const validateStep = (step: number, form: ISetupFormState) => {
   return null;
 };
 
-const validateAll = (form: ISetupFormState) => {
+const validateAll = (form: ISetupFormState, savedSecretKeys: string[]) => {
   for (let index = 0; index < steps.length - 1; index += 1) {
-    const error = validateStep(index, form);
+    const error = validateStep(index, form, savedSecretKeys);
 
     if (error) {
       return error;
@@ -754,4 +1119,36 @@ const getActiveModel = (form: ISetupFormState) => {
   }
 
   return form.geminiModel.trim();
+};
+
+const buildFormFromConfigStatus = (status: IConfigStatus): ISetupFormState => {
+  const config = status.config;
+
+  return {
+    ...initialForm,
+    activeAiProvider: config.activeAiProvider ?? initialForm.activeAiProvider,
+    databaseUrl: config.database?.url ?? initialForm.databaseUrl,
+    allowedUserIds: config.whatsapp?.allowedUserIds?.join(",") ?? "",
+    geminiModel: config.ai?.gemini?.model ?? initialForm.geminiModel,
+    geminiBaseUrl: config.ai?.gemini?.baseUrl ?? "",
+    openaiModel: config.ai?.openai?.model ?? initialForm.openaiModel,
+    openaiBaseUrl: config.ai?.openai?.baseUrl ?? "",
+    anthropicModel: config.ai?.anthropic?.model ?? initialForm.anthropicModel,
+    anthropicBaseUrl: config.ai?.anthropic?.baseUrl ?? "",
+    customProviderName:
+      config.ai?.custom?.name ?? initialForm.customProviderName,
+    customModel: config.ai?.custom?.model ?? "",
+    customBaseUrl: config.ai?.custom?.baseUrl ?? "",
+    providerApiKey: "",
+    spreadsheetId:
+      config.spreadsheet?.spreadsheetId ?? initialForm.spreadsheetId,
+    spreadsheetName:
+      config.spreadsheet?.spreadsheetName ?? initialForm.spreadsheetName,
+    sheetName: config.spreadsheet?.sheetName ?? initialForm.sheetName,
+    serviceAccountFileName:
+      config.spreadsheet?.serviceAccountPath?.split(/[\\/]/).pop() ||
+      initialForm.serviceAccountFileName,
+    serviceAccountContent: "",
+    serviceAccountPath: config.spreadsheet?.serviceAccountPath ?? "",
+  };
 };

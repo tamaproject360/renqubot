@@ -16,6 +16,7 @@
     "start": "bun run src/index.ts",
     "start:backend": "bun run services/api/src/index.ts",
     "dev:frontend": "bun run --filter @renqubot/web dev",
+    "dev:frontend:3002": "bun run --filter @renqubot/web dev:3002",
     "dev:backend": "bun --watch run services/api/src/index.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:frontend": "bun run --filter @renqubot/web typecheck",

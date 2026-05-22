@@ -61,7 +61,7 @@ export function WhatsappSessionPanel() {
           description="QR ditampilkan bila bot runtime menghasilkan QR aktif."
         >
           <div className="qr-panel">
-            <div>
+            <div className="qr-panel__content">
               <strong>
                 {qr?.qr ? "QR aktif tersedia" : "QR belum tersedia"}
               </strong>
@@ -70,7 +70,13 @@ export function WhatsappSessionPanel() {
                   ? `QR berlaku sampai ${qr.expiresAt}`
                   : "Jalankan bot runtime lalu tunggu polling berikutnya."}
               </p>
-              {qr?.qr ? <code>{qr.qr}</code> : null}
+              {qr?.qrSvg ? (
+                <img
+                  alt="QR login WhatsApp"
+                  className="qr-panel__image"
+                  src={`data:image/svg+xml;utf8,${encodeURIComponent(qr.qrSvg)}`}
+                />
+              ) : null}
             </div>
           </div>
         </SectionCard>

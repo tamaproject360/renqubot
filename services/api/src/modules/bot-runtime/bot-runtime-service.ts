@@ -46,7 +46,9 @@ export class BotRuntimeService {
 
   public start(config: IAppConfig, secrets: ISecretValues): IBotRuntimeStatus {
     if (this.process) {
-      return this.getStatus();
+      this.process.kill();
+      this.process = null;
+      this.startedAt = null;
     }
 
     const apiKey = getRuntimeSecret(config, secrets);
@@ -58,7 +60,7 @@ export class BotRuntimeService {
     }
 
     this.startedAt = new Date().toISOString();
-    this.process = Bun.spawn(['bun', 'run', 'src/index.ts'], {
+    const nextProcess = Bun.spawn(['bun', 'run', 'src/index.ts'], {
       cwd: rootDir,
       env: {
         ...Bun.env,
@@ -91,10 +93,13 @@ export class BotRuntimeService {
       stderr: 'inherit',
       stdout: 'inherit',
     });
+    this.process = nextProcess;
 
-    this.process.exited.finally(() => {
-      this.process = null;
-      this.startedAt = null;
+    nextProcess.exited.finally(() => {
+      if (this.process === nextProcess) {
+        this.process = null;
+        this.startedAt = null;
+      }
     });
 
     return this.getStatus();

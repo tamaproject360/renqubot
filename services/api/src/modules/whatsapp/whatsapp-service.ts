@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { renderSVG } from 'uqr';
 import type {
   IWhatsappQrResponse,
   IWhatsappStatus,
@@ -48,6 +49,7 @@ export class WhatsappService {
     if (!state.lastQr || !state.qrUpdatedAt) {
       return {
         qr: null,
+        qrSvg: null,
         expiresAt: null,
       };
     }
@@ -59,12 +61,14 @@ export class WhatsappService {
     if (Date.now() > expiresAt.getTime()) {
       return {
         qr: null,
+        qrSvg: null,
         expiresAt: expiresAt.toISOString(),
       };
     }
 
     return {
       qr: state.lastQr,
+      qrSvg: renderSVG(state.lastQr, {}),
       expiresAt: expiresAt.toISOString(),
     };
   }
