@@ -67,7 +67,7 @@ interface ISetupFormState {
 
 const initialForm: ISetupFormState = {
   activeAiProvider: "gemini",
-  databaseUrl: "file:./data/baileys.db",
+  databaseUrl: "sqlite://./data/baileys.db",
   allowedUserIds: "",
   geminiModel: "gemini-2.0-flash-lite",
   geminiBaseUrl: "",
@@ -548,11 +548,11 @@ const renderStep = (
         </FormField>
         <FormField
           label="Database URL"
-          hint="Contoh: file:./data/baileys.db untuk SQLite lokal."
+          hint="Contoh: sqlite://./data/baileys.db untuk SQLite lokal."
         >
           <input
             className="input"
-            placeholder="file:./data/baileys.db"
+            placeholder="sqlite://./data/baileys.db"
             value={form.databaseUrl}
             onChange={(event) => updateField("databaseUrl", event.target.value)}
           />
@@ -1027,7 +1027,7 @@ const validateStep = (
 ) => {
   if (step === 0) {
     if (!form.databaseUrl.trim()) {
-      return "Database URL wajib diisi. Contoh: file:./data/baileys.db";
+      return "Database URL wajib diisi. Contoh: sqlite://./data/baileys.db";
     }
 
     if (

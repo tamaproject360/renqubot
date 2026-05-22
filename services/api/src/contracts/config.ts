@@ -42,7 +42,7 @@ export const appConfigSchema = z.object({
     .default({}),
   database: z
     .object({
-      url: z.string().trim().min(1).default('file:./data/baileys.db'),
+      url: z.string().trim().min(1).default('sqlite://./data/baileys.db'),
     })
     .default({}),
   spreadsheet: z

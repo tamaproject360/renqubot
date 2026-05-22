@@ -114,7 +114,7 @@ Untuk menjalankan bot WhatsApp legacy, salin `.env.example` menjadi `.env` lalu 
 
 | Variable           | Required                     | Description                                               |
 | ------------------ | ---------------------------- | --------------------------------------------------------- |
-| `DATABASE_URL`     | No                           | Lokasi SQLite database. Default: `file:./data/baileys.db` |
+| `DATABASE_URL`     | No                           | Lokasi SQLite database. Default: `sqlite://./data/baileys.db` |
 | `GEMINI_API_KEY`   | Yes (current implementation) | API key Google Gemini                                     |
 | `GEMINI_MODEL`     | No                           | Model Gemini yang digunakan                               |
 | `GEMINI_HOST`      | No                           | Base URL Gemini custom                                    |
@@ -259,18 +259,6 @@ bun run format
 - `services/api` adalah backend API admin yang berjalan terpisah dari bot runtime.
 - `apps/web` adalah frontend Next.js dengan sidebar biru collapsible dan main area putih.
 - Readiness awal bisa `not_ready` sampai config provider AI dan WhatsApp dilengkapi.
-
-## Roadmap Summary
-
-Prioritas pengembangan berikutnya:
-
-1. Tambahkan autentikasi admin untuk GUI dan endpoint sensitif
-2. Hubungkan form frontend dengan seluruh endpoint config/secret/upload
-3. Tingkatkan abstraction layer AI multi-provider
-4. Tambahkan observability dan testing yang lebih lengkap
-5. Siapkan deployment blueprint untuk frontend, backend API, dan bot runtime
-
-Detail task tersedia di `docs/task.md`.
 
 ## Code Quality
 

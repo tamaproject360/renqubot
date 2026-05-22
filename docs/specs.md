@@ -204,7 +204,7 @@ Rekomendasi implementasi Phase 10 saat ini dipetakan sebagai berikut:
 7. SQLite tetap digunakan dengan abstraction awal melalui `DatabaseService` dan schema queue Spreadsheet.
 8. Integrasi Google Sheets sekarang memiliki fondasi `spreadsheet_sync_jobs` agar kegagalan sinkronisasi tidak harus memblokir transaksi utama.
 9. Milestone delivery bertahap dicatat di `docs/release-plan.md`.
-10. Deployment production awal tersedia melalui Docker Compose dengan service terpisah untuk backend API Bun dan frontend Next.js, serta volume persisten `./data` untuk SQLite, konfigurasi, credential, dan state WhatsApp.
+10. Deployment production awal tersedia melalui Docker Compose dengan service terpisah untuk backend API Bun dan frontend Next.js, base image `oven/bun:1.3.3-slim`, serta volume persisten `./data` untuk SQLite, konfigurasi, credential, dan state WhatsApp.
 
 ## Deployment Structure
 
@@ -220,7 +220,7 @@ renqubot/
 └─ docs/deployment.md          # Panduan deploy ke server
 ```
 
-Data production dipersistenkan melalui bind mount `./data:/app/data`, sehingga database SQLite, file konfigurasi, credential Google service account, dan state runtime WhatsApp tidak hilang saat container dibuat ulang.
+Data production dipersistenkan melalui bind mount `./data:/app/data`, sehingga database SQLite, file konfigurasi, credential Google service account, dan state runtime WhatsApp tidak hilang saat container dibuat ulang. URL SQLite production memakai format eksplisit `sqlite:///app/data/baileys.db` agar kompatibel dengan `Bun.SQL` pada image Bun terbaru.
 
 ## Workflow (make with mermaid diagram syntax)
 

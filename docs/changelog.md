@@ -25,6 +25,9 @@
 - Menghubungkan Dashboard dan Status Integrasi frontend ke endpoint live backend untuk summary, health, runtime bot, WhatsApp, diagnostics, transaksi terbaru, dan antrean Spreadsheet.
 - Menghubungkan halaman Transactions ke data real `/api/transactions`, `/api/summary`, dan antrean Spreadsheet sync dengan tombol retry pending job.
 - Menambahkan konfigurasi deployment production Docker Compose, Dockerfile API/Web, template `.env.production`, `.dockerignore`, dan panduan `docs/deployment.md`.
+- Melakukan checkpoint deployment LXC `1012`: Renqu Bot berjalan di Docker Compose pada `192.168.0.112`, API `3001`, Web `3000`, provider OpenAI-compatible Pabrik Token, dan database SQLite healthy setelah runtime Docker dinaikkan ke Bun `1.3.3` serta dependency workspace disalin ke image.
+- Menambahkan `docs/perbaikandeploy.md` untuk mencatat patch production Docker/Bun/SQLite yang perlu diterapkan ke source lokal, serta menambahkan dan memverifikasi alias SSH VS Code `lxc1012-renqubot` dan `renqubot-lxc` pada konfigurasi lokal.
+- Menerapkan patch deploy production ke source lokal: Dockerfile API/Web kini memakai `oven/bun:1.3.3-slim`, dependency workspace API/Web disalin dari stage deps, default database URL memakai `sqlite://`, dan `DatabaseService` membuat direktori SQLite untuk URL `sqlite://` maupun `file:`.
 
 ## 2026-05-21
 

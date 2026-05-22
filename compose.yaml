@@ -11,7 +11,7 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 3001
-      DATABASE_URL: file:/app/data/baileys.db
+      DATABASE_URL: sqlite:///app/data/baileys.db
       CONFIG_PATH: /app/data/config/app-config.json
       SECRETS_PATH: /app/data/config/app-secrets.json
       SECRETS_META_PATH: /app/data/config/app-secrets-meta.json

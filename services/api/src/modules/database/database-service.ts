@@ -40,16 +40,28 @@ export class DatabaseService {
   }
 
   private async ensureSqliteDirectory(databaseUrl: string) {
-    if (!databaseUrl.startsWith('file:')) {
+    if (databaseUrl === ':memory:') {
       return;
     }
 
-    const filePath = databaseUrl.replace(/^file:/, '');
+    const filePath = this.getSqliteFilePath(databaseUrl);
 
-    if (!filePath || filePath === ':memory:') {
+    if (!filePath) {
       return;
     }
 
     await mkdir(dirname(filePath), { recursive: true });
+  }
+
+  private getSqliteFilePath(databaseUrl: string) {
+    if (databaseUrl.startsWith('sqlite://')) {
+      return databaseUrl.replace(/^sqlite:\/\//, '').split('?')[0] ?? '';
+    }
+
+    if (databaseUrl.startsWith('file:')) {
+      return databaseUrl.replace(/^file:/, '').split('?')[0] ?? '';
+    }
+
+    return '';
   }
 }

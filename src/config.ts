@@ -1,4 +1,4 @@
-export const DATABASE_URL = Bun.env.DATABASE_URL || 'file:./data/baileys.db';
+export const DATABASE_URL = Bun.env.DATABASE_URL || 'sqlite://./data/baileys.db';
 export const AI_PROVIDER = Bun.env.AI_PROVIDER || 'gemini';
 
 export const GEMINI_MODEL = Bun.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';

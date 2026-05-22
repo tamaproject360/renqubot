@@ -79,6 +79,8 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Mengaktifkan Dashboard dan Status Integrasi agar memakai data live backend, bukan placeholder/mockup statis.
 - DONE: Mengaktifkan halaman Transactions agar memakai data transaksi real, summary live, status sinkronisasi Spreadsheet, dan aksi retry pending sync.
 - DONE: Menyiapkan deployment production Docker Compose dengan image API/Web terpisah, volume persisten `data`, env template, dan panduan deploy server.
+- DONE: Men-deploy Renqu Bot ke LXC `1012` melalui Docker Compose, menghubungkan provider OpenAI-compatible Pabrik Token, memastikan API/Web berjalan, gateway chat completion berhasil, dan database SQLite healthy dengan Bun `1.3.3`.
+- DONE: Menerapkan patch deploy production ke source lokal: Dockerfile API/Web memakai `oven/bun:1.3.3-slim`, dependency workspace ikut disalin ke image, dan default SQLite production memakai `sqlite:///app/data/baileys.db`.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |
