@@ -99,9 +99,13 @@ renqubot/
 │  ├─ db.ts
 │  └─ index.ts
 ├─ .env.example
+├─ .env.production.example
 ├─ .gitignore
 ├─ LICENSE
 ├─ bun.lock
+├─ compose.yaml
+├─ Dockerfile.api
+├─ Dockerfile.web
 ├─ ecosystem.config.cjs
 ├─ package.json
 ├─ README.md
@@ -200,6 +204,23 @@ Rekomendasi implementasi Phase 10 saat ini dipetakan sebagai berikut:
 7. SQLite tetap digunakan dengan abstraction awal melalui `DatabaseService` dan schema queue Spreadsheet.
 8. Integrasi Google Sheets sekarang memiliki fondasi `spreadsheet_sync_jobs` agar kegagalan sinkronisasi tidak harus memblokir transaksi utama.
 9. Milestone delivery bertahap dicatat di `docs/release-plan.md`.
+10. Deployment production awal tersedia melalui Docker Compose dengan service terpisah untuk backend API Bun dan frontend Next.js, serta volume persisten `./data` untuk SQLite, konfigurasi, credential, dan state WhatsApp.
+
+## Deployment Structure
+
+Deployment Docker Compose menggunakan berkas berikut:
+
+```text
+renqubot/
+├─ compose.yaml                # Orkestrasi production API + Web
+├─ Dockerfile.api              # Image backend Bun API dan bot runtime bridge
+├─ Dockerfile.web              # Image Next.js admin frontend
+├─ .dockerignore               # Mengecualikan cache, secrets, dan data lokal dari build context
+├─ .env.production.example     # Template environment production
+└─ docs/deployment.md          # Panduan deploy ke server
+```
+
+Data production dipersistenkan melalui bind mount `./data:/app/data`, sehingga database SQLite, file konfigurasi, credential Google service account, dan state runtime WhatsApp tidak hilang saat container dibuat ulang.
 
 ## Workflow (make with mermaid diagram syntax)
 

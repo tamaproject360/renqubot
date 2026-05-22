@@ -1,0 +1,53 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: renqubot-api
+    restart: unless-stopped
+    env_file:
+      - path: .env.production
+        required: false
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      DATABASE_URL: file:/app/data/baileys.db
+      CONFIG_PATH: /app/data/config/app-config.json
+      SECRETS_PATH: /app/data/config/app-secrets.json
+      SECRETS_META_PATH: /app/data/config/app-secrets-meta.json
+      AUDIT_LOG_PATH: /app/data/config/audit-log.jsonl
+      CREDENTIALS_DIR: /app/data/credentials
+      WHATSAPP_RUNTIME_STATE_PATH: /app/data/runtime/whatsapp-status.json
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bun -e "const r=await fetch(''http://127.0.0.1:3001/health'').catch(()=>null); process.exit(r ? 0 : 1)"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+    container_name: renqubot-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+    ports:
+      - "3000:3000"

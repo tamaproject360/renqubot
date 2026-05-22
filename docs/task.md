@@ -78,6 +78,7 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Mengubah command WhatsApp `/reset` agar Spreadsheet kembali kosong dengan header baru tanpa mengisi ulang transaksi lokal.
 - DONE: Mengaktifkan Dashboard dan Status Integrasi agar memakai data live backend, bukan placeholder/mockup statis.
 - DONE: Mengaktifkan halaman Transactions agar memakai data transaksi real, summary live, status sinkronisasi Spreadsheet, dan aksi retry pending sync.
+- DONE: Menyiapkan deployment production Docker Compose dengan image API/Web terpisah, volume persisten `data`, env template, dan panduan deploy server.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |
