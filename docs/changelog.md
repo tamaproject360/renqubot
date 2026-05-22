@@ -22,6 +22,8 @@
 - Memperbaiki autosave setup wizard menjadi berbasis step agar perubahan di step AI/General tidak menimpa nilai Spreadsheet yang sudah tersimpan.
 - Menambahkan fallback backend agar service account path otomatis memakai file JSON yang sudah ada di `data/credentials` dan tidak mudah terhapus oleh patch config kosong.
 - Mengubah command WhatsApp `/reset` agar hanya mengosongkan sheet dan menulis ulang header, tanpa mengisi ulang transaksi lokal SQLite.
+- Menghubungkan Dashboard dan Status Integrasi frontend ke endpoint live backend untuk summary, health, runtime bot, WhatsApp, diagnostics, transaksi terbaru, dan antrean Spreadsheet.
+- Menghubungkan halaman Transactions ke data real `/api/transactions`, `/api/summary`, dan antrean Spreadsheet sync dengan tombol retry pending job.
 
 ## 2026-05-21
 

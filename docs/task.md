@@ -76,6 +76,8 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Memperbaiki autosave wizard agar hanya menyimpan field pada step aktif dan tidak lagi mengosongkan field Spreadsheet dari step lain.
 - DONE: Menambahkan fallback backend untuk mengunci credential Google Sheets dari file JSON yang sudah ada agar tidak dianggap hilang setelah navigasi wizard.
 - DONE: Mengubah command WhatsApp `/reset` agar Spreadsheet kembali kosong dengan header baru tanpa mengisi ulang transaksi lokal.
+- DONE: Mengaktifkan Dashboard dan Status Integrasi agar memakai data live backend, bukan placeholder/mockup statis.
+- DONE: Mengaktifkan halaman Transactions agar memakai data transaksi real, summary live, status sinkronisasi Spreadsheet, dan aksi retry pending sync.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |
