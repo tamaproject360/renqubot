@@ -29,6 +29,7 @@
 - Menambahkan `docs/perbaikandeploy.md` untuk mencatat patch production Docker/Bun/SQLite yang perlu diterapkan ke source lokal, serta menambahkan dan memverifikasi alias SSH VS Code `lxc1012-renqubot` dan `renqubot-lxc` pada konfigurasi lokal.
 - Menerapkan patch deploy production ke source lokal: Dockerfile API/Web kini memakai `oven/bun:1.3.3-slim`, dependency workspace API/Web disalin dari stage deps, default database URL memakai `sqlite://`, dan `DatabaseService` membuat direktori SQLite untuk URL `sqlite://` maupun `file:`.
 - Menambahkan command WhatsApp `/destroy` untuk reset riwayat SQLite lokal: transaksi, pesan tersimpan, grup tersimpan, dan antrean sinkronisasi Spreadsheet dihapus, Spreadsheet dikosongkan jika tersedia, sedangkan konfigurasi dan sesi WhatsApp tetap dipertahankan.
+- Menambahkan command WhatsApp `/status`, `/saldo`, dan `/laporan` untuk menampilkan status runtime/server, saldo total cycle berjalan, serta laporan pemasukan/pengeluaran, kategori, dan transaksi terakhir pada cycle berjalan.
 
 ## 2026-05-21
 

@@ -7,13 +7,18 @@ import {
 } from 'baileys';
 import { generateResponse, type IBotMessage } from '../ai/ai';
 import {
+  getCurrentCycleSummary,
   hasTransactionBySourceMessageId,
   resetDatabaseForFreshStart,
   sql,
 } from '../db';
-import { ALLOWED_USER_IDS } from '../config';
+import { AI_PROVIDER, ALLOWED_USER_IDS } from '../config';
 import { logger } from '../logger';
-import { clearSheetForFreshStart } from '../spreadsheet';
+import {
+  clearSheetForFreshStart,
+  GCLOUD_KEY_PATH,
+  SPREADSHEET_ID,
+} from '../spreadsheet';
 
 const allowedIds = ALLOWED_USER_IDS;
 const allowedImageMimeTypes = new Set([
@@ -25,8 +30,115 @@ const maxImageSizeBytes = 20 * 1024 * 1024;
 const catatCommandPattern = /^\/catat(?:\s+([\s\S]+))?$/i;
 const resetCommandPattern = /^\/reset$/i;
 const destroyCommandPattern = /^\/destroy$/i;
+const statusCommandPattern = /^\/status$/i;
+const saldoCommandPattern = /^\/saldo$/i;
+const laporanCommandPattern = /^\/laporan$/i;
 const catatUsageText =
   'Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('id-ID', {
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(value);
+
+const formatDateRange = (firstDate: string | null, lastDate: string | null) => {
+  if (!firstDate || !lastDate) {
+    return 'Belum ada transaksi di cycle berjalan';
+  }
+
+  if (firstDate === lastDate) {
+    return firstDate;
+  }
+
+  return `${firstDate} s.d. ${lastDate}`;
+};
+
+const formatUptime = (uptimeSeconds: number) => {
+  const days = Math.floor(uptimeSeconds / 86400);
+  const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days} hari ${hours} jam ${minutes} menit`;
+  }
+
+  if (hours > 0) {
+    return `${hours} jam ${minutes} menit`;
+  }
+
+  return `${minutes} menit`;
+};
+
+const buildSaldoReply = async () => {
+  const summary = await getCurrentCycleSummary();
+
+  return [
+    'Saldo cycle berjalan',
+    `Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
+    `Saldo: ${formatCurrency(summary.totalBalance)}`,
+    `Pemasukan: ${formatCurrency(summary.totalIncome)}`,
+    `Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
+    `Jumlah transaksi: ${summary.transactionCount}`,
+  ].join('\n');
+};
+
+const buildLaporanReply = async () => {
+  const summary = await getCurrentCycleSummary();
+  const categoryLines = summary.categories.map(
+    (item) =>
+      `- ${item.type} ${item.category}: ${formatCurrency(item.total)} (${item.transaction_count}x)`,
+  );
+  const latestLines = summary.latestTransactions.map((transaction) =>
+    `- ${transaction.date} ${transaction.type}: ${formatCurrency(transaction.amount)} ${transaction.description ?? transaction.merchant_or_sender ?? ''}`.trim(),
+  );
+
+  return [
+    'Laporan cycle berjalan',
+    `Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
+    `Saldo: ${formatCurrency(summary.totalBalance)}`,
+    `Pemasukan: ${formatCurrency(summary.totalIncome)}`,
+    `Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
+    `Jumlah transaksi: ${summary.transactionCount}`,
+    '',
+    'Ringkasan kategori:',
+    categoryLines.length > 0
+      ? categoryLines.join('\n')
+      : '- Belum ada transaksi',
+    '',
+    'Transaksi terakhir:',
+    latestLines.length > 0 ? latestLines.join('\n') : '- Belum ada transaksi',
+  ].join('\n');
+};
+
+const buildStatusReply = async () => {
+  await sql`SELECT 1 as ok;`;
+  const summary = await getCurrentCycleSummary();
+  const spreadsheetStatus =
+    SPREADSHEET_ID && GCLOUD_KEY_PATH ? 'configured' : 'not_configured';
+
+  return [
+    'Status server Renqu Bot',
+    `Runtime: aktif`,
+    `Uptime: ${formatUptime(process.uptime())}`,
+    `Database: healthy`,
+    `AI Provider: ${AI_PROVIDER}`,
+    `Spreadsheet: ${spreadsheetStatus}`,
+    `Transaksi cycle berjalan: ${summary.transactionCount}`,
+    `Pending sync Spreadsheet: ${summary.pendingSyncJobs}`,
+    `Saldo cycle berjalan: ${formatCurrency(summary.totalBalance)}`,
+  ].join('\n');
+};
+
+const sendCommandReply = async (
+  sock: WASocket,
+  message: WAMessage,
+  remoteJid: string,
+  text: string,
+) => {
+  await sock.sendMessage(remoteJid, { text }, { quoted: message });
+};
 
 const parseCatatCommand = (value?: string | null) => {
   const match = value?.trim().match(catatCommandPattern);
@@ -123,6 +235,76 @@ const handleBotMessage = async (
   }
 
   const textMessage = msg.conversation ?? msg.extendedTextMessage?.text;
+
+  if (statusCommandPattern.test(textMessage?.trim() ?? '')) {
+    try {
+      await sendCommandReply(
+        sock,
+        message,
+        remoteJid,
+        await buildStatusReply(),
+      );
+    } catch (error) {
+      logger.error('Failed to build status WhatsApp command reply', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sendCommandReply(
+        sock,
+        message,
+        remoteJid,
+        buildProcessingErrorReply(error),
+      );
+    }
+
+    return;
+  }
+
+  if (saldoCommandPattern.test(textMessage?.trim() ?? '')) {
+    try {
+      await sendCommandReply(sock, message, remoteJid, await buildSaldoReply());
+    } catch (error) {
+      logger.error('Failed to build saldo WhatsApp command reply', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sendCommandReply(
+        sock,
+        message,
+        remoteJid,
+        buildProcessingErrorReply(error),
+      );
+    }
+
+    return;
+  }
+
+  if (laporanCommandPattern.test(textMessage?.trim() ?? '')) {
+    try {
+      await sendCommandReply(
+        sock,
+        message,
+        remoteJid,
+        await buildLaporanReply(),
+      );
+    } catch (error) {
+      logger.error('Failed to build laporan WhatsApp command reply', {
+        module: 'MessageUpsert',
+        sourceMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await sendCommandReply(
+        sock,
+        message,
+        remoteJid,
+        buildProcessingErrorReply(error),
+      );
+    }
+
+    return;
+  }
 
   if (resetCommandPattern.test(textMessage?.trim() ?? '')) {
     try {

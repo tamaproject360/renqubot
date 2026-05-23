@@ -142,6 +142,25 @@ export interface ITransaction {
   updated_at: number;
 }
 
+export interface ICurrentCycleCategorySummary {
+  type: 'PENGELUARAN' | 'PEMASUKAN';
+  category: string;
+  total: number;
+  transaction_count: number;
+}
+
+export interface ICurrentCycleSummary {
+  totalIncome: number;
+  totalExpense: number;
+  totalBalance: number;
+  transactionCount: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  categories: ICurrentCycleCategorySummary[];
+  latestTransactions: ITransaction[];
+  pendingSyncJobs: number;
+}
+
 export const hasTransactionBySourceMessageId = async (
   sourceMessageId: string,
 ) => {
@@ -196,6 +215,59 @@ export const getTotalBalance = async () => {
 
   return totalIncome - totalExpense;
 };
+
+export const getCurrentCycleSummary =
+  async (): Promise<ICurrentCycleSummary> => {
+    const totals = await sql<
+      {
+        total_income: number | null;
+        total_expense: number | null;
+        transaction_count: number;
+        first_date: string | null;
+        last_date: string | null;
+      }[]
+    >`
+    SELECT
+      SUM(CASE WHEN type = 'PEMASUKAN' THEN amount ELSE 0 END) as total_income,
+      SUM(CASE WHEN type = 'PENGELUARAN' THEN amount ELSE 0 END) as total_expense,
+      COUNT(*) as transaction_count,
+      MIN(date) as first_date,
+      MAX(date) as last_date
+    FROM transactions;
+  `;
+    const categories = await sql<ICurrentCycleCategorySummary[]>`
+    SELECT
+      type,
+      COALESCE(NULLIF(category, ''), 'Tanpa kategori') as category,
+      SUM(amount) as total,
+      COUNT(*) as transaction_count
+    FROM transactions
+    GROUP BY type, COALESCE(NULLIF(category, ''), 'Tanpa kategori')
+    ORDER BY total DESC
+    LIMIT 8;
+  `;
+    const latestTransactions = await sql<ITransaction[]>`
+    SELECT * FROM transactions ORDER BY date DESC, id DESC LIMIT 5;
+  `;
+    const pendingSyncJobs = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total FROM spreadsheet_sync_jobs WHERE status = 'pending';
+  `;
+
+    const totalIncome = totals[0]?.total_income ?? 0;
+    const totalExpense = totals[0]?.total_expense ?? 0;
+
+    return {
+      totalIncome,
+      totalExpense,
+      totalBalance: totalIncome - totalExpense,
+      transactionCount: totals[0]?.transaction_count ?? 0,
+      firstDate: totals[0]?.first_date ?? null,
+      lastDate: totals[0]?.last_date ?? null,
+      categories,
+      latestTransactions,
+      pendingSyncJobs: pendingSyncJobs[0]?.total ?? 0,
+    };
+  };
 
 export const getDailySummary = async () => {
   const result = await sql<

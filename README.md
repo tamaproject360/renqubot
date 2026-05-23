@@ -242,6 +242,9 @@ Urutan yang disarankan untuk test cepat:
 
 - `/catat <teks transaksi>`: mencatat pemasukan atau pengeluaran dari teks.
 - `/catat` sebagai caption gambar: memproses struk/foto transaksi.
+- `/status`: mengecek status runtime, database, provider AI, Spreadsheet, pending sync, dan saldo cycle berjalan.
+- `/saldo`: menampilkan saldo, pemasukan, pengeluaran, dan jumlah transaksi pada cycle berjalan.
+- `/laporan`: menampilkan laporan cycle berjalan berisi total, ringkasan kategori, dan transaksi terakhir.
 - `/reset`: mengosongkan Google Spreadsheet dan membuat ulang header transaksi.
 - `/destroy`: menghapus riwayat transaksi, pesan tersimpan, grup tersimpan, dan job sync dari SQLite lokal, lalu mencoba mengosongkan Spreadsheet. Konfigurasi dan sesi WhatsApp tetap dipertahankan.
 
