@@ -33,6 +33,7 @@ Spesifikasi ini dibuat agar agentic AI code generator memahami kondisi aplikasi 
 8. Menyimpan sesi login WhatsApp ke database
 9. Membatasi akses user berdasarkan `ALLOWED_USER_IDS`
 10. Mendukung command operasional WhatsApp `/status`, `/saldo`, `/laporan`, `/reset`, dan `/destroy`
+11. Admin GUI memiliki menu Categories untuk CRUD kategori transaksi pemasukan dan pengeluaran, termasuk ikon, status aktif, deskripsi, dan budget bulanan opsional.
 
 ### Planned Features
 
@@ -354,6 +355,14 @@ Endpoint backend yang tersedia:
     - membaca status proses bot runtime yang dinyalakan dari backend API.
 20. `POST /api/bot-runtime/start`
     - menyalakan bot runtime legacy dari konfigurasi wizard dengan provider aktif Gemini, OpenAI, Anthropic, atau OpenAI-compatible.
+21. `GET /api/categories`
+    - membaca daftar kategori transaksi beserta pemakaian bulan berjalan.
+22. `POST /api/categories`
+    - menambahkan kategori transaksi baru.
+23. `PATCH /api/categories/:id`
+    - memperbarui kategori transaksi.
+24. `DELETE /api/categories/:id`
+    - menghapus kategori transaksi.
 
 Endpoint `/health` dan `/ready` sekarang menggunakan `HealthService` untuk mengagregasi status database, AI, spreadsheet, dan WhatsApp. Jika komponen critical tidak siap, endpoint dapat mengembalikan HTTP `503` dengan envelope error-free tetapi status readiness `not_ready`.
 
@@ -386,10 +395,15 @@ Phase 7 dan Phase 8 menambahkan guard domain berikut pada runtime bot legacy dan
 5. Response AI invalid atau JSON rusak tidak disimpan sebagai transaksi dan dikembalikan sebagai fallback reply aman.
 6. Confidence score disimpan sebagai angka `0..1`; jika model tidak mengirim confidence, runtime memakai default konservatif.
 7. Payload gambar dibatasi ke MIME `image/jpeg`, `image/png`, atau `image/webp` dengan ukuran maksimum 20 MB sebelum diproses model.
-8. Sinkronisasi Google Spreadsheet menulis header baris pertama `Timestamp`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan`, lalu append transaksi pada kolom `A:F`.
+8. Sinkronisasi Google Spreadsheet menulis header baris pertama `Timestamp`, `ID Transaksi`, `Jenis`, `Kategori`, `Jumlah`, `Merchant/Sumber`, dan `Keterangan`, lalu append transaksi pada kolom `A:G`.
 9. Command `/status` menampilkan status runtime, database, provider AI, konfigurasi Spreadsheet, jumlah transaksi cycle berjalan, pending sync, dan saldo.
 10. Command `/saldo` dan `/laporan` memakai konsep cycle berjalan sebagai seluruh transaksi yang tersisa sejak reset terakhir melalui `/destroy`.
 11. Command `/destroy` menghapus histori transaksi, pesan tersimpan, grup tersimpan, dan antrean sinkronisasi Spreadsheet dari SQLite, lalu mengosongkan Spreadsheet jika integrasi tersedia; konfigurasi aplikasi dan sesi WhatsApp dipertahankan agar bot tetap bisa merespons setelah reset.
+12. Tabel `transaction_categories` menyimpan kategori transaksi dengan field `type`, `name`, `icon`, `description`, `is_active`, `budget_enabled`, dan `budget_amount` untuk dikelola dari admin GUI.
+13. Kategori default di-seed sebagai starter taxonomy, kategori aktif dari tabel ini dikirim ke prompt AI agar transaksi baru memakai nama kategori yang sama dengan master kategori.
+14. Perubahan nama atau tipe kategori memperbarui transaksi lokal lama yang memakai kategori tersebut, lalu backend mencoba membangun ulang sheet transaksi dari SQLite supaya kolom kategori di Google Spreadsheet tetap mengikuti sumber data lokal.
+15. Runtime WhatsApp mengirim balasan cepat saat command diterima sebelum proses berat berjalan, lalu mengirim hasil akhir dengan format yang lebih informatif dan menyertakan `ID Transaksi` publik untuk transaksi baru.
+16. `ID Transaksi` publik disimpan sebagai `transaction_code` dengan format `DDMMYYYYpmN` untuk pemasukan dan `DDMMYYYYpeN` untuk pengeluaran, berdasarkan urutan transaksi pada tanggal dan tipe yang sama.
 
 ## Configuration Platform
 
@@ -472,6 +486,7 @@ Admin GUI Phase 4 menggunakan visual korporat dengan palet utama biru dan area k
    - `/integrations`
    - `/whatsapp`
    - `/transactions`
+   - `/categories`
    - `/system`
 5. Komponen frontend dipisahkan antara layout, UI primitives, dan presentational components per domain agar fetcher/server integration dapat ditambahkan tanpa mengubah visual layer besar-besaran.
 6. Halaman `/setup` menggunakan pola wizard linear dengan progress indicator, tombol Back/Next, validasi per step, auto-save draft konfigurasi non-secret, review page, dan tombol `Simpan & Nyalakan Bot` untuk menjalankan runtime setelah setup selesai.

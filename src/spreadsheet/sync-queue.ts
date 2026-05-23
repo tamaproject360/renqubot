@@ -5,6 +5,7 @@ import { GCLOUD_KEY_PATH, SPREADSHEET_ID } from './config';
 
 export interface ISpreadsheetSyncJobPayload {
   date: string | null;
+  transactionId?: string | null;
   type: string | null;
   category: string | null;
   amount: number | null;
@@ -59,6 +60,7 @@ export const retryPendingSpreadsheetSyncJobs = async (limit = 10) => {
       const payload = JSON.parse(job.payload) as ISpreadsheetSyncJobPayload;
       await appendTransactionRowToSheet([
         payload.date,
+        payload.transactionId ?? null,
         payload.type,
         payload.category,
         payload.amount,

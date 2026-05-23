@@ -34,7 +34,10 @@ const statusCommandPattern = /^\/status$/i;
 const saldoCommandPattern = /^\/saldo$/i;
 const laporanCommandPattern = /^\/laporan$/i;
 const catatUsageText =
-  'Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
+  '📝 Gunakan format: /catat beli makan 25000 atau kirim foto struk dengan caption /catat.';
+
+const commandAcceptedText =
+  '✅ Ok, perintah sedang diproses ⏳\nHarap tunggu sebentar ya.';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('id-ID', {
@@ -75,12 +78,12 @@ const buildSaldoReply = async () => {
   const summary = await getCurrentCycleSummary();
 
   return [
-    'Saldo cycle berjalan',
-    `Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
-    `Saldo: ${formatCurrency(summary.totalBalance)}`,
-    `Pemasukan: ${formatCurrency(summary.totalIncome)}`,
-    `Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
-    `Jumlah transaksi: ${summary.transactionCount}`,
+    '💰 *Saldo cycle berjalan*',
+    `🗓️ Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
+    `🏦 Saldo: *${formatCurrency(summary.totalBalance)}*`,
+    `📈 Pemasukan: ${formatCurrency(summary.totalIncome)}`,
+    `📉 Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
+    `🧾 Jumlah transaksi: ${summary.transactionCount}`,
   ].join('\n');
 };
 
@@ -88,26 +91,26 @@ const buildLaporanReply = async () => {
   const summary = await getCurrentCycleSummary();
   const categoryLines = summary.categories.map(
     (item) =>
-      `- ${item.type} ${item.category}: ${formatCurrency(item.total)} (${item.transaction_count}x)`,
+      `- ${item.type === 'PEMASUKAN' ? '📈' : '📉'} ${item.category}: ${formatCurrency(item.total)} (${item.transaction_count}x)`,
   );
   const latestLines = summary.latestTransactions.map((transaction) =>
-    `- ${transaction.date} ${transaction.type}: ${formatCurrency(transaction.amount)} ${transaction.description ?? transaction.merchant_or_sender ?? ''}`.trim(),
+    `- ${transaction.transaction_code ?? `#${transaction.id}`} ${transaction.date} ${transaction.type === 'PEMASUKAN' ? '📈' : '📉'} ${formatCurrency(transaction.amount)} ${transaction.description ?? transaction.merchant_or_sender ?? ''}`.trim(),
   );
 
   return [
-    'Laporan cycle berjalan',
-    `Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
-    `Saldo: ${formatCurrency(summary.totalBalance)}`,
-    `Pemasukan: ${formatCurrency(summary.totalIncome)}`,
-    `Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
-    `Jumlah transaksi: ${summary.transactionCount}`,
+    '📊 *Laporan cycle berjalan*',
+    `🗓️ Periode: ${formatDateRange(summary.firstDate, summary.lastDate)}`,
+    `🏦 Saldo: *${formatCurrency(summary.totalBalance)}*`,
+    `📈 Pemasukan: ${formatCurrency(summary.totalIncome)}`,
+    `📉 Pengeluaran: ${formatCurrency(summary.totalExpense)}`,
+    `🧾 Jumlah transaksi: ${summary.transactionCount}`,
     '',
-    'Ringkasan kategori:',
+    '🏷️ *Ringkasan kategori:*',
     categoryLines.length > 0
       ? categoryLines.join('\n')
       : '- Belum ada transaksi',
     '',
-    'Transaksi terakhir:',
+    '🕘 *Transaksi terakhir:*',
     latestLines.length > 0 ? latestLines.join('\n') : '- Belum ada transaksi',
   ].join('\n');
 };
@@ -119,15 +122,15 @@ const buildStatusReply = async () => {
     SPREADSHEET_ID && GCLOUD_KEY_PATH ? 'configured' : 'not_configured';
 
   return [
-    'Status server Renqu Bot',
-    `Runtime: aktif`,
-    `Uptime: ${formatUptime(process.uptime())}`,
-    `Database: healthy`,
-    `AI Provider: ${AI_PROVIDER}`,
-    `Spreadsheet: ${spreadsheetStatus}`,
-    `Transaksi cycle berjalan: ${summary.transactionCount}`,
-    `Pending sync Spreadsheet: ${summary.pendingSyncJobs}`,
-    `Saldo cycle berjalan: ${formatCurrency(summary.totalBalance)}`,
+    '🟢 *Status server Renqu Bot*',
+    `⚙️ Runtime: aktif`,
+    `⏱️ Uptime: ${formatUptime(process.uptime())}`,
+    `🗄️ Database: healthy`,
+    `🤖 AI Provider: ${AI_PROVIDER}`,
+    `📄 Spreadsheet: ${spreadsheetStatus}`,
+    `🧾 Transaksi cycle berjalan: ${summary.transactionCount}`,
+    `⏳ Pending sync Spreadsheet: ${summary.pendingSyncJobs}`,
+    `💰 Saldo cycle berjalan: *${formatCurrency(summary.totalBalance)}*`,
   ].join('\n');
 };
 
@@ -138,6 +141,14 @@ const sendCommandReply = async (
   text: string,
 ) => {
   await sock.sendMessage(remoteJid, { text }, { quoted: message });
+};
+
+const sendProcessingReply = async (
+  sock: WASocket,
+  message: WAMessage,
+  remoteJid: string,
+) => {
+  await sendCommandReply(sock, message, remoteJid, commandAcceptedText);
 };
 
 const parseCatatCommand = (value?: string | null) => {
@@ -238,6 +249,7 @@ const handleBotMessage = async (
 
   if (statusCommandPattern.test(textMessage?.trim() ?? '')) {
     try {
+      await sendProcessingReply(sock, message, remoteJid);
       await sendCommandReply(
         sock,
         message,
@@ -263,6 +275,7 @@ const handleBotMessage = async (
 
   if (saldoCommandPattern.test(textMessage?.trim() ?? '')) {
     try {
+      await sendProcessingReply(sock, message, remoteJid);
       await sendCommandReply(sock, message, remoteJid, await buildSaldoReply());
     } catch (error) {
       logger.error('Failed to build saldo WhatsApp command reply', {
@@ -283,6 +296,7 @@ const handleBotMessage = async (
 
   if (laporanCommandPattern.test(textMessage?.trim() ?? '')) {
     try {
+      await sendProcessingReply(sock, message, remoteJid);
       await sendCommandReply(
         sock,
         message,
@@ -308,11 +322,12 @@ const handleBotMessage = async (
 
   if (resetCommandPattern.test(textMessage?.trim() ?? '')) {
     try {
+      await sendProcessingReply(sock, message, remoteJid);
       await clearSheetForFreshStart();
       await sock.sendMessage(
         remoteJid,
         {
-          text: 'Spreadsheet berhasil direset. Sheet sudah dikosongkan dan header transaksi dibuat ulang.',
+          text: '✅ Spreadsheet berhasil direset.\n📄 Sheet sudah dikosongkan dan header transaksi dibuat ulang.',
         },
         { quoted: message },
       );
@@ -334,24 +349,25 @@ const handleBotMessage = async (
 
   if (destroyCommandPattern.test(textMessage?.trim() ?? '')) {
     try {
+      await sendProcessingReply(sock, message, remoteJid);
       const result = await resetDatabaseForFreshStart();
       let spreadsheetMessage =
-        'Spreadsheet juga berhasil dikosongkan dan header transaksi dibuat ulang.';
+        '✅ Spreadsheet juga berhasil dikosongkan dan header transaksi dibuat ulang.';
 
       try {
         await clearSheetForFreshStart();
       } catch (error) {
-        spreadsheetMessage = `Database berhasil direset, tetapi Spreadsheet belum bisa dikosongkan: ${error instanceof Error ? error.message : String(error)}`;
+        spreadsheetMessage = `⚠️ Database berhasil direset, tetapi Spreadsheet belum bisa dikosongkan: ${error instanceof Error ? error.message : String(error)}`;
       }
 
       await sock.sendMessage(
         remoteJid,
         {
           text: [
-            'Database SQLite berhasil direset ke kondisi awal.',
-            `Transaksi dihapus: ${result.deletedTransactions}.`,
-            `Riwayat pesan dihapus: ${result.deletedMessages}.`,
-            `Job sync Spreadsheet dihapus: ${result.deletedSyncJobs}.`,
+            '🧹 *Database SQLite berhasil direset ke kondisi awal.*',
+            `🧾 Transaksi dihapus: ${result.deletedTransactions}.`,
+            `💬 Riwayat pesan dihapus: ${result.deletedMessages}.`,
+            `📄 Job sync Spreadsheet dihapus: ${result.deletedSyncJobs}.`,
             spreadsheetMessage,
           ].join('\n'),
         },
@@ -384,13 +400,14 @@ const handleBotMessage = async (
   if (await hasTransactionBySourceMessageId(sourceMessageId)) {
     await sock.sendMessage(
       remoteJid,
-      { text: 'Transaksi dari pesan ini sudah pernah dicatat sebelumnya.' },
+      { text: 'ℹ️ Transaksi dari pesan ini sudah pernah dicatat sebelumnya.' },
       { quoted: message },
     );
     return;
   }
 
   await sock.sendPresenceUpdate('available', remoteJid);
+  await sendProcessingReply(sock, message, remoteJid);
 
   await Bun.sleep(1000);
 

@@ -10,6 +10,7 @@ const navigationItems = [
   { label: "Integrations", href: "/integrations", icon: "IN" },
   { label: "WhatsApp", href: "/whatsapp", icon: "WA" },
   { label: "Transactions", href: "/transactions", icon: "TR" },
+  { label: "Categories", href: "/categories", icon: "CT" },
   { label: "System", href: "/system", icon: "SY" },
 ];
 

@@ -107,6 +107,52 @@ export class TransactionService {
       await sql`ALTER TABLE transactions ADD COLUMN processed_at TEXT;`;
     }
 
+    if (
+      !transactionColumns.some((column) => column.name === 'transaction_code')
+    ) {
+      await sql`ALTER TABLE transactions ADD COLUMN transaction_code TEXT;`;
+    }
+
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source_message_id ON transactions(source_message_id);`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_transaction_code ON transactions(transaction_code);`;
+    await this.backfillTransactionCodes(sql);
+  }
+
+  private async backfillTransactionCodes(sql: Bun.SQL) {
+    const rows = await sql<
+      { id: number; date: string; type: 'PENGELUARAN' | 'PEMASUKAN' }[]
+    >`
+      SELECT id, date, type
+      FROM transactions
+      WHERE transaction_code IS NULL OR transaction_code = ''
+      ORDER BY date ASC, type ASC, id ASC;
+    `;
+    const counters = new Map<string, number>();
+
+    for (const row of rows) {
+      const key = `${row.date}-${row.type}`;
+      const nextSequence = (counters.get(key) ?? 0) + 1;
+      counters.set(key, nextSequence);
+
+      await sql`
+        UPDATE transactions
+        SET transaction_code = ${this.buildTransactionCode(
+          row.date,
+          row.type,
+          nextSequence,
+        )}
+        WHERE id = ${row.id};
+      `;
+    }
+  }
+
+  private buildTransactionCode(
+    date: string,
+    type: 'PENGELUARAN' | 'PEMASUKAN',
+    sequence: number,
+  ) {
+    const [year, month, day] = date.split('-');
+
+    return `${day}${month}${year}${type === 'PEMASUKAN' ? 'pm' : 'pe'}${sequence}`;
   }
 }

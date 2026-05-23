@@ -9,6 +9,7 @@ import {
 import { logger } from './lib/logger';
 import { AiService } from './modules/ai/ai-service';
 import { BotRuntimeService } from './modules/bot-runtime/bot-runtime-service';
+import { CategoryService } from './modules/categories/category-service';
 import { ConfigService } from './modules/config/config-service';
 import { DatabaseService } from './modules/database/database-service';
 import { DiagnosticsService } from './modules/diagnostics/diagnostics-service';
@@ -31,6 +32,7 @@ const whatsappService = new WhatsappService(databaseService);
 const healthService = new HealthService(diagnosticsService, whatsappService);
 const systemService = new SystemService();
 const transactionService = new TransactionService(databaseService);
+const categoryService = new CategoryService(databaseService);
 const botRuntimeService = new BotRuntimeService();
 
 const notFound = () => {
@@ -274,6 +276,76 @@ const server = Bun.serve({
           configStatus.config,
           Number.isFinite(limit) ? limit : 25,
         );
+        return ok(result);
+      }
+
+      if (url.pathname === '/api/categories' && request.method === 'GET') {
+        const configStatus = await configService.getStatus();
+        const result = await categoryService.listCategories(
+          configStatus.config,
+        );
+        return ok(result);
+      }
+
+      if (url.pathname === '/api/categories' && request.method === 'POST') {
+        const payload = await readJsonBody(request);
+
+        if (!payload) {
+          return fail('INVALID_JSON', 'Request body harus JSON valid.', 400);
+        }
+
+        const configStatus = await configService.getStatus();
+        const result = await categoryService.createCategory(
+          configStatus.config,
+          payload,
+        );
+        return ok(result, { status: 201 });
+      }
+
+      const categoryMatch = url.pathname.match(/^\/api\/categories\/(\d+)$/);
+
+      if (categoryMatch && request.method === 'PATCH') {
+        const payload = await readJsonBody(request);
+
+        if (!payload) {
+          return fail('INVALID_JSON', 'Request body harus JSON valid.', 400);
+        }
+
+        const configStatus = await configService.getStatus();
+        const result = await categoryService.updateCategory(
+          configStatus.config,
+          Number(categoryMatch[1]),
+          payload,
+        );
+
+        if (!result) {
+          return fail('CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.', 404);
+        }
+
+        try {
+          await spreadsheetService.rebuildTransactionSheet(configStatus.config);
+        } catch (error) {
+          logger.warn('Category updated without Spreadsheet rebuild', {
+            module: 'API',
+            correlationId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return ok(result);
+      }
+
+      if (categoryMatch && request.method === 'DELETE') {
+        const configStatus = await configService.getStatus();
+        const result = await categoryService.deleteCategory(
+          configStatus.config,
+          Number(categoryMatch[1]),
+        );
+
+        if (!result) {
+          return fail('CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.', 404);
+        }
+
         return ok(result);
       }
 

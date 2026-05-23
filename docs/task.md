@@ -83,6 +83,10 @@ Untuk produksi, aplikasi juga belum memiliki mekanisme authentication untuk admi
 - DONE: Menerapkan patch deploy production ke source lokal: Dockerfile API/Web memakai `oven/bun:1.3.3-slim`, dependency workspace ikut disalin ke image, dan default SQLite production memakai `sqlite:///app/data/baileys.db`.
 - DONE: Menambahkan command WhatsApp `/destroy` untuk mereset riwayat SQLite lokal dengan menghapus transaksi, pesan tersimpan, grup tersimpan, dan job sinkronisasi Spreadsheet, sekaligus mencoba mengosongkan Spreadsheet jika integrasi tersedia.
 - DONE: Menambahkan command WhatsApp `/status`, `/saldo`, dan `/laporan` untuk mengecek status server, saldo total cycle berjalan, dan laporan ringkas cycle berjalan.
+- DONE: Menambahkan menu Categories di sidebar setelah Transactions dengan CRUD kategori transaksi end-to-end melalui API dan SQLite.
+- DONE: Menyinkronkan master kategori dengan runtime bot dan transaksi: kategori aktif dipakai sebagai panduan AI, rename kategori memperbarui transaksi lokal, dan perubahan kategori mencoba rebuild Google Spreadsheet dari SQLite.
+- DONE: Menambahkan acknowledgement cepat untuk command WhatsApp dan kolom `ID Transaksi` pada Spreadsheet serta halaman Transactions.
+- DONE: Mengubah ID transaksi publik menjadi kode unik berbasis tanggal, tipe, dan urutan harian seperti `24052026pm1` atau `24052026pe1`.
 
 |  No | Tugas                                                                                                                                                                                | Status | Prioritas | Phase                                    |
 | --: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- | ---------------------------------------- |

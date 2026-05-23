@@ -5,7 +5,7 @@ const corsOrigin = Bun.env.API_CORS_ORIGIN ?? '*';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': corsOrigin,
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-correlation-id',
 };
 

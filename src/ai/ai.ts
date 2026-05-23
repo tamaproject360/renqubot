@@ -4,7 +4,14 @@ import {
   type IAIResponse,
   type ITransactionData,
 } from './promt';
-import { getDailySummary, getTotalBalance, getTransactions, sql } from '../db';
+import {
+  generateTransactionCode,
+  getActiveTransactionCategories,
+  getDailySummary,
+  getTotalBalance,
+  getTransactions,
+  sql,
+} from '../db';
 import { logger } from '../logger';
 import { withRetry } from '../retry';
 import { saveToSheetDirect } from '../spreadsheet';
@@ -94,6 +101,20 @@ const buildContextualSystemInstruction = async () => {
   const totalBalance = await getTotalBalance();
   const latestIncome = await getTransactions('PEMASUKAN', 10);
   const latestExpense = await getTransactions('PENGELUARAN', 10);
+  const activeCategories = await getActiveTransactionCategories();
+  const incomeCategories = activeCategories.filter(
+    (category) => category.type === 'PEMASUKAN',
+  );
+  const expenseCategories = activeCategories.filter(
+    (category) => category.type === 'PENGELUARAN',
+  );
+  const formatCategoryList = (categories: typeof activeCategories) =>
+    categories
+      .map(
+        (category) =>
+          `  - ${category.name}${category.description ? `: ${category.description}` : ''}`,
+      )
+      .join('\n');
 
   const additionalContexts = `\n\nData Keuanganku saat ini:
 - Total Saldo: Rp${totalBalance.toLocaleString('id-ID')}
@@ -123,7 +144,18 @@ ${latestExpense
         'id-ID',
       )} ${item.merchant_or_sender ? `ke ${item.merchant_or_sender}` : ''} pada ${item.date} (${item.description})`,
   )
-  .join('\n')}`;
+  .join('\n')}
+
+Kategori aktif yang HARUS diprioritaskan saat mengklasifikasikan transaksi:
+- Kategori Pemasukan:
+${formatCategoryList(incomeCategories) || '  - Lainnya'}
+- Kategori Pengeluaran:
+${formatCategoryList(expenseCategories) || '  - Lainnya'}
+
+Aturan sinkron kategori:
+- Gunakan nama kategori aktif di atas secara persis jika transaksi cocok.
+- Jangan membuat variasi nama kategori baru jika sudah ada kategori aktif yang relevan.
+- Jika tidak ada kategori aktif yang cocok, gunakan "Lainnya" untuk tipe terkait.`;
 
   return systemInstructions + additionalContexts;
 };
@@ -367,26 +399,35 @@ export const generateResponse = async (
   const data = validation.data;
 
   if (data.is_transaction) {
+    const transactionDate =
+      normalizeTransactionDate(data.transaction_data?.date) ??
+      new Date().toISOString().split('T')[0] ??
+      new Date().toISOString().slice(0, 10);
     const transaction: ITransactionData = {
       amount: data.transaction_data?.amount || 0,
       category: data.transaction_data?.category ?? null,
-      date: normalizeTransactionDate(data.transaction_data?.date),
+      date: transactionDate,
       description: data.transaction_data?.description ?? null,
       type: data.transaction_data?.type ?? null,
       merchant_or_sender: data.transaction_data?.merchant_or_sender ?? null,
     };
+    const transactionCode = await generateTransactionCode(
+      transactionDate,
+      transaction.type ?? 'PENGELUARAN',
+    );
 
     const insertedTransactions = await sql<
-      { id: number }[]
+      { id: number; transaction_code: string | null }[]
     >`INSERT INTO transactions ${sql({
       ...transaction,
+      transaction_code: transactionCode,
       spreadsheet_sync_status: 'pending',
       source_message_id: options.sourceMessageId ?? null,
       sender: options.sender ?? null,
       raw_ai_result: result,
       confidence: data.confidence,
       processed_at: new Date().toISOString(),
-    })} ON CONFLICT(source_message_id) DO NOTHING RETURNING id;`;
+    })} ON CONFLICT(source_message_id) DO NOTHING RETURNING id, transaction_code;`;
 
     if (insertedTransactions.length === 0) {
       logger.info('Duplicate transaction ignored', {
@@ -400,9 +441,14 @@ export const generateResponse = async (
       } satisfies IAIResponse;
     }
 
-    const spreadsheetSynced = await saveToSheetDirect(data);
-    const syncStatus = spreadsheetSynced ? 'synced' : 'pending';
     const transactionId = insertedTransactions[0]?.id;
+    const publicTransactionId =
+      insertedTransactions[0]?.transaction_code ?? transactionCode;
+    const spreadsheetSynced = await saveToSheetDirect(
+      data,
+      publicTransactionId,
+    );
+    const syncStatus = spreadsheetSynced ? 'synced' : 'pending';
 
     if (transactionId) {
       await sql`UPDATE transactions SET spreadsheet_sync_status = ${syncStatus}, updated_at = unixepoch() WHERE id = ${transactionId};`;
@@ -411,10 +457,18 @@ export const generateResponse = async (
     logger.info('Transaction persisted', {
       module: 'AI',
       transactionId,
+      transactionCode: publicTransactionId,
       spreadsheetSyncStatus: syncStatus,
       confidence: data.confidence,
       sourceMessageId: options.sourceMessageId,
     });
+
+    data.reply_text = [
+      data.reply_text,
+      '',
+      `🧾 ID Transaksi: *${publicTransactionId}*`,
+      `📌 Status Spreadsheet: ${spreadsheetSynced ? '✅ Tersinkron' : '⏳ Masuk antrean sync'}`,
+    ].join('\n');
   }
 
   return data;

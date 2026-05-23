@@ -7,6 +7,63 @@ if (sql.options.adapter !== 'sqlite') {
   throw new Error('Database adapter harus SQLite.');
 }
 
+const defaultTransactionCategories = [
+  {
+    type: 'PENGELUARAN',
+    name: 'Bahan Makanan',
+    icon: '🥦',
+    description: 'Belanja bahan makanan harian atau bulanan.',
+  },
+  {
+    type: 'PENGELUARAN',
+    name: 'Tagihan Rumah',
+    icon: '💡',
+    description: 'Listrik, air, internet, dan tagihan rumah lain.',
+  },
+  {
+    type: 'PENGELUARAN',
+    name: 'Kebutuhan Rumah Tangga',
+    icon: '🧹',
+    description: 'Perlengkapan rumah dan kebutuhan operasional rumah.',
+  },
+  {
+    type: 'PENGELUARAN',
+    name: 'Makan di Luar & Delivery',
+    icon: '🍔',
+    description: 'Makan di luar, delivery, dan jajan.',
+  },
+  {
+    type: 'PENGELUARAN',
+    name: 'Hobby & Hiburan',
+    icon: '🎮',
+    description: 'Hiburan, rekreasi, dan kebutuhan hobi.',
+  },
+  {
+    type: 'PENGELUARAN',
+    name: 'Lainnya',
+    icon: '✍️',
+    description: 'Pengeluaran lain yang belum punya kategori khusus.',
+  },
+  {
+    type: 'PEMASUKAN',
+    name: 'Gaji',
+    icon: '💼',
+    description: 'Pendapatan utama dari pekerjaan.',
+  },
+  {
+    type: 'PEMASUKAN',
+    name: 'Bonus',
+    icon: '🎁',
+    description: 'Bonus, insentif, dan pendapatan tambahan.',
+  },
+  {
+    type: 'PEMASUKAN',
+    name: 'Donasi',
+    icon: '🙏',
+    description: 'Pemasukan berupa donasi atau pemberian.',
+  },
+] as const;
+
 export const startMigration = async () => {
   await sql`PRAGMA journal_mode = WAL;`;
   await sql`PRAGMA foreign_keys = OFF;`;
@@ -82,7 +139,15 @@ export const startMigration = async () => {
     await sql`ALTER TABLE transactions ADD COLUMN processed_at TEXT;`;
   }
 
+  if (
+    !transactionColumns.some((column) => column.name === 'transaction_code')
+  ) {
+    await sql`ALTER TABLE transactions ADD COLUMN transaction_code TEXT;`;
+  }
+
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source_message_id ON transactions(source_message_id);`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_transaction_code ON transactions(transaction_code);`;
+  await backfillTransactionCodes();
 
   await sql`CREATE TABLE IF NOT EXISTS "schema_migrations" (
     "version" TEXT PRIMARY KEY,
@@ -122,10 +187,14 @@ export const startMigration = async () => {
     "created_at" INTEGER DEFAULT (unixepoch()) NOT NULL,
     "updated_at" INTEGER DEFAULT (unixepoch()) NOT NULL
   ) STRICT;`;
+
+  await ensureTransactionCategoriesTable();
+  await seedDefaultTransactionCategories();
 };
 
 export interface ITransaction {
   id: number;
+  transaction_code?: string | null;
   type: 'PENGELUARAN' | 'PEMASUKAN';
   category: string | null;
   amount: number;
@@ -160,6 +229,115 @@ export interface ICurrentCycleSummary {
   latestTransactions: ITransaction[];
   pendingSyncJobs: number;
 }
+
+export interface IActiveTransactionCategory {
+  type: 'PENGELUARAN' | 'PEMASUKAN';
+  name: string;
+  description: string | null;
+}
+
+export const ensureTransactionCategoriesTable = async () => {
+  await sql`CREATE TABLE IF NOT EXISTS "transaction_categories" (
+    id INTEGER PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('PENGELUARAN', 'PEMASUKAN')),
+    name TEXT NOT NULL,
+    icon TEXT DEFAULT '🏷️' NOT NULL,
+    description TEXT,
+    is_active INTEGER DEFAULT 1 NOT NULL,
+    budget_enabled INTEGER DEFAULT 0 NOT NULL,
+    budget_amount REAL DEFAULT 0 NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+    updated_at INTEGER DEFAULT (unixepoch()) NOT NULL,
+    UNIQUE(type, name)
+  ) STRICT;`;
+};
+
+export const seedDefaultTransactionCategories = async () => {
+  await ensureTransactionCategoriesTable();
+  const rows = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total FROM transaction_categories;
+  `;
+
+  if ((rows[0]?.total ?? 0) > 0) {
+    return;
+  }
+
+  for (const category of defaultTransactionCategories) {
+    await sql`
+      INSERT INTO transaction_categories ${sql({
+        ...category,
+        is_active: 1,
+        budget_enabled: 0,
+        budget_amount: 0,
+      })}
+      ON CONFLICT(type, name) DO NOTHING;
+    `;
+  }
+};
+
+export const getActiveTransactionCategories = async () => {
+  await seedDefaultTransactionCategories();
+  return await sql<IActiveTransactionCategory[]>`
+    SELECT type, name, description
+    FROM transaction_categories
+    WHERE is_active = 1
+    ORDER BY type DESC, name ASC;
+  `;
+};
+
+export const generateTransactionCode = async (
+  date: string,
+  type: 'PENGELUARAN' | 'PEMASUKAN',
+) => {
+  const [year, month, day] = date.split('-');
+  const prefix = `${day}${month}${year}${type === 'PEMASUKAN' ? 'pm' : 'pe'}`;
+  const rows = await sql<{ total: number }[]>`
+    SELECT COUNT(*) as total
+    FROM transactions
+    WHERE date = ${date}
+      AND type = ${type};
+  `;
+
+  return `${prefix}${(rows[0]?.total ?? 0) + 1}`;
+};
+
+const buildTransactionCode = (
+  date: string,
+  type: 'PENGELUARAN' | 'PEMASUKAN',
+  sequence: number,
+) => {
+  const [year, month, day] = date.split('-');
+
+  return `${day}${month}${year}${type === 'PEMASUKAN' ? 'pm' : 'pe'}${sequence}`;
+};
+
+const backfillTransactionCodes = async () => {
+  const rows = await sql<
+    { id: number; date: string; type: 'PENGELUARAN' | 'PEMASUKAN' }[]
+  >`
+    SELECT id, date, type
+    FROM transactions
+    WHERE transaction_code IS NULL OR transaction_code = ''
+    ORDER BY date ASC, type ASC, id ASC;
+  `;
+  const counters = new Map<string, number>();
+
+  for (const row of rows) {
+    const key = `${row.date}-${row.type}`;
+    const nextSequence = (counters.get(key) ?? 0) + 1;
+    counters.set(key, nextSequence);
+
+    await sql`
+      UPDATE transactions
+      SET transaction_code = ${buildTransactionCode(
+        row.date,
+        row.type,
+        nextSequence,
+      )}
+      WHERE id = ${row.id};
+    `;
+  }
+};
 
 export const hasTransactionBySourceMessageId = async (
   sourceMessageId: string,

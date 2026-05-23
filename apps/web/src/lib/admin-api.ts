@@ -94,6 +94,7 @@ export interface IBotRuntimeStatus {
 
 export interface ITransactionRecord {
   id: number;
+  transaction_code?: string | null;
   type: 'PENGELUARAN' | 'PEMASUKAN';
   category: string | null;
   amount: number;
@@ -129,6 +130,31 @@ export interface ISpreadsheetSyncJob {
   last_error: string | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface ITransactionCategory {
+  id: number;
+  type: 'PENGELUARAN' | 'PEMASUKAN';
+  name: string;
+  icon: string;
+  description: string | null;
+  is_active: number;
+  budget_enabled: number;
+  budget_amount: number;
+  usage_this_month: number;
+  transaction_count_this_month: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ICategoryPayload {
+  type: 'PENGELUARAN' | 'PEMASUKAN';
+  name: string;
+  icon: string;
+  description: string;
+  isActive: boolean;
+  budgetEnabled: boolean;
+  budgetAmount: number;
 }
 
 export const fetchApi = async <T>(path: string, init?: RequestInit) => {
@@ -226,4 +252,31 @@ export const getSpreadsheetSyncJobs = (limit = 10) => {
   return fetchApi<{ items: ISpreadsheetSyncJob[]; limit: number }>(
     `/api/spreadsheet-sync/jobs?limit=${limit}`,
   );
+};
+
+export const getCategories = () => {
+  return fetchApi<{ items: ITransactionCategory[] }>('/api/categories');
+};
+
+export const createCategory = (payload: ICategoryPayload) => {
+  return fetchApi<ITransactionCategory>('/api/categories', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateCategory = (
+  id: number,
+  payload: Partial<ICategoryPayload>,
+) => {
+  return fetchApi<ITransactionCategory>(`/api/categories/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteCategory = (id: number) => {
+  return fetchApi<{ id: number }>(`/api/categories/${id}`, {
+    method: 'DELETE',
+  });
 };

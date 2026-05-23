@@ -14,6 +14,27 @@ interface ISpreadsheetSyncJobRow {
   updated_at: number;
 }
 
+interface ITransactionSheetRow {
+  id: number;
+  transaction_code: string | null;
+  date: string;
+  type: string;
+  category: string | null;
+  amount: number;
+  merchant_or_sender: string | null;
+  description: string | null;
+}
+
+const transactionHeaders = [
+  'Timestamp',
+  'ID Transaksi',
+  'Jenis',
+  'Kategori',
+  'Jumlah',
+  'Merchant/Sumber',
+  'Keterangan',
+];
+
 export class SpreadsheetService {
   public constructor(private readonly databaseService?: DatabaseService) {}
 
@@ -119,6 +140,56 @@ export class SpreadsheetService {
     };
   }
 
+  public async rebuildTransactionSheet(config: IAppConfig) {
+    if (
+      !config.spreadsheet.spreadsheetId ||
+      !config.spreadsheet.serviceAccountPath
+    ) {
+      throw new Error('Spreadsheet config is incomplete.');
+    }
+
+    const sql = this.getSql(config);
+
+    await sql.connect();
+    await this.ensureTransactionCodeColumn(sql);
+    const transactions = await sql<ITransactionSheetRow[]>`
+      SELECT id, transaction_code, date, type, category, amount, merchant_or_sender, description
+      FROM transactions
+      ORDER BY date ASC, id ASC;
+    `;
+    await sql.close();
+
+    const auth = new google.auth.GoogleAuth({
+      keyFile: config.spreadsheet.serviceAccountPath,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const rows = transactions.map((transaction) => [
+      transaction.date,
+      transaction.transaction_code ?? String(transaction.id),
+      transaction.type,
+      transaction.category,
+      transaction.amount,
+      transaction.merchant_or_sender,
+      transaction.description,
+    ]);
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: config.spreadsheet.spreadsheetId,
+      range: `${config.spreadsheet.sheetName}!A:G`,
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: config.spreadsheet.spreadsheetId,
+      range: `${config.spreadsheet.sheetName}!A1:G${rows.length + 1}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [transactionHeaders, ...rows],
+      },
+    });
+
+    return { transactions: transactions.length };
+  }
+
   private getSql(config: IAppConfig) {
     return (
       this.databaseService?.createSql(config.database.url) ??
@@ -138,6 +209,16 @@ export class SpreadsheetService {
     ) STRICT;`;
   }
 
+  private async ensureTransactionCodeColumn(sql: Bun.SQL) {
+    const columns = await sql<{ name: string }[]>`
+      PRAGMA table_info('transactions');
+    `;
+
+    if (!columns.some((column) => column.name === 'transaction_code')) {
+      await sql`ALTER TABLE transactions ADD COLUMN transaction_code TEXT;`;
+    }
+  }
+
   private async appendJobPayload(config: IAppConfig, payloadText: string) {
     if (
       !config.spreadsheet.spreadsheetId ||
@@ -148,6 +229,7 @@ export class SpreadsheetService {
 
     const payload = JSON.parse(payloadText) as {
       date: string | null;
+      transactionId?: string | null;
       type: string | null;
       category: string | null;
       amount: number | null;
@@ -162,12 +244,13 @@ export class SpreadsheetService {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: config.spreadsheet.spreadsheetId,
-      range: `${config.spreadsheet.sheetName}!A:F`,
+      range: `${config.spreadsheet.sheetName}!A:G`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [
           [
             payload.date,
+            payload.transactionId ?? null,
             payload.type,
             payload.category,
             payload.amount,

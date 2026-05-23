@@ -145,6 +145,7 @@ export function TransactionsTable() {
             <thead>
               <tr>
                 <th>Tanggal</th>
+                <th>ID Transaksi</th>
                 <th>Deskripsi</th>
                 <th>Tipe</th>
                 <th>Kategori</th>
@@ -157,6 +158,9 @@ export function TransactionsTable() {
                 transactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td>{transaction.date}</td>
+                    <td>
+                      {transaction.transaction_code ?? `#${transaction.id}`}
+                    </td>
                     <td>{transaction.description ?? "-"}</td>
                     <td>{transaction.type}</td>
                     <td>{transaction.category ?? "-"}</td>
@@ -174,7 +178,7 @@ export function TransactionsTable() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6}>Belum ada transaksi.</td>
+                  <td colSpan={7}>Belum ada transaksi.</td>
                 </tr>
               )}
             </tbody>

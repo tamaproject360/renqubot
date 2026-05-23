@@ -30,6 +30,10 @@
 - Menerapkan patch deploy production ke source lokal: Dockerfile API/Web kini memakai `oven/bun:1.3.3-slim`, dependency workspace API/Web disalin dari stage deps, default database URL memakai `sqlite://`, dan `DatabaseService` membuat direktori SQLite untuk URL `sqlite://` maupun `file:`.
 - Menambahkan command WhatsApp `/destroy` untuk reset riwayat SQLite lokal: transaksi, pesan tersimpan, grup tersimpan, dan antrean sinkronisasi Spreadsheet dihapus, Spreadsheet dikosongkan jika tersedia, sedangkan konfigurasi dan sesi WhatsApp tetap dipertahankan.
 - Menambahkan command WhatsApp `/status`, `/saldo`, dan `/laporan` untuk menampilkan status runtime/server, saldo total cycle berjalan, serta laporan pemasukan/pengeluaran, kategori, dan transaksi terakhir pada cycle berjalan.
+- Menambahkan fitur Categories pada admin GUI: menu sidebar, halaman CRUD kategori pemasukan/pengeluaran, modal tambah/edit dengan ikon, status aktif, deskripsi, budget opsional, serta endpoint API `/api/categories` berbasis SQLite.
+- Memperkuat sinkronisasi kategori: bot runtime membaca kategori aktif dari SQLite untuk prompt AI, rename kategori memperbarui transaksi lokal lama, dan backend mencoba membangun ulang Google Spreadsheet dari SQLite setelah kategori diubah.
+- Menambahkan balasan cepat WhatsApp saat command diterima, memperkaya format balasan dengan emoji/status, serta menambahkan kolom `ID Transaksi` setelah timestamp pada Google Spreadsheet dan halaman Transactions.
+- Mengubah `ID Transaksi` publik dari primary key numeric menjadi kode harian per tipe seperti `24052026pm1` atau `24052026pe1`, termasuk backfill transaksi lama dan fallback tampilan untuk data lama.
 
 ## 2026-05-21
 

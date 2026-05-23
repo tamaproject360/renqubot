@@ -4,6 +4,15 @@ import { GCLOUD_KEY_PATH, SHEET_NAME, SPREADSHEET_ID } from './config';
 
 const transactionHeaders = [
   'Timestamp',
+  'ID Transaksi',
+  'Jenis',
+  'Kategori',
+  'Jumlah',
+  'Merchant/Sumber',
+  'Keterangan',
+];
+const legacyTransactionHeaders = [
+  'Timestamp',
   'Jenis',
   'Kategori',
   'Jumlah',
@@ -26,7 +35,7 @@ export const appendTransactionRowToSheet = async (
       await ensureTransactionSheetHeader(googleSheets);
       await googleSheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A:F`,
+        range: `${SHEET_NAME}!A:G`,
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',
         requestBody: {
@@ -52,11 +61,11 @@ export const resetTransactionSheet = async (
     async () => {
       await googleSheets.spreadsheets.values.clear({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A:F`,
+        range: `${SHEET_NAME}!A:G`,
       });
       await googleSheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A1:F${rows.length + 1}`,
+        range: `${SHEET_NAME}!A1:G${rows.length + 1}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [transactionHeaders, ...rows],
@@ -80,11 +89,11 @@ export const clearTransactionSheet = async () => {
     async () => {
       await googleSheets.spreadsheets.values.clear({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A:F`,
+        range: `${SHEET_NAME}!A:G`,
       });
       await googleSheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A1:F1`,
+        range: `${SHEET_NAME}!A1:G1`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [transactionHeaders],
@@ -104,7 +113,7 @@ export const clearTransactionSheet = async () => {
 const ensureTransactionSheetHeader = async (
   googleSheets: ReturnType<typeof google.sheets>,
 ) => {
-  const headerRange = `${SHEET_NAME}!A1:F1`;
+  const headerRange = `${SHEET_NAME}!A1:G1`;
   const response = await googleSheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: headerRange,
@@ -120,8 +129,30 @@ const ensureTransactionSheetHeader = async (
 
   const sheetId = await getSheetId(googleSheets);
   const hasExistingFirstRow = currentHeaders.some((value) => Boolean(value));
+  const isLegacyHeader = legacyTransactionHeaders.every(
+    (header, index) => currentHeaders[index] === header,
+  );
 
-  if (hasExistingFirstRow && sheetId !== null) {
+  if (isLegacyHeader && sheetId !== null) {
+    await googleSheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            insertDimension: {
+              range: {
+                sheetId,
+                dimension: 'COLUMNS',
+                startIndex: 1,
+                endIndex: 2,
+              },
+              inheritFromBefore: false,
+            },
+          },
+        ],
+      },
+    });
+  } else if (hasExistingFirstRow && sheetId !== null) {
     await googleSheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {

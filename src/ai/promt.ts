@@ -36,7 +36,8 @@ Output Wajib JSON dengan skema berikut:
 }
 
 ATURAN KATEGORI (PENTING):
-Jangan gunakan ENUM kaku, tapi gunakan logika pengelompokan umum yang manusiawi (1-3 kata).
+Utamakan kategori aktif yang diberikan pada context tambahan. Gunakan nama kategori aktif secara persis jika cocok agar data SQLite dan Google Spreadsheet tetap sinkron.
+Jika tidak ada kategori aktif yang cocok, gunakan kategori "Lainnya" sesuai tipe transaksi.
 Contoh Logika:
 - Beli nasi/kopi/snack -> "Makanan & Minuman"
 - Bensin/Parkir/Grab/Goar -> "Transportasi"

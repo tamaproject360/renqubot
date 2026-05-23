@@ -1,5 +1,6 @@
 export interface ITransactionRecord {
   id: number;
+  transaction_code?: string | null;
   type: 'PENGELUARAN' | 'PEMASUKAN';
   category: string | null;
   amount: number;

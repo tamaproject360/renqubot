@@ -9,13 +9,17 @@ import {
 import { GCLOUD_KEY_PATH, SPREADSHEET_ID } from './config';
 import { enqueueSpreadsheetSyncJob } from './sync-queue';
 
-export const saveToSheetDirect = async (data: IAIResponse) => {
+export const saveToSheetDirect = async (
+  data: IAIResponse,
+  transactionId?: string | null,
+) => {
   if (!data.is_transaction || !data.transaction_data) return;
 
   const t = data.transaction_data;
 
   const rowData = [
     t.date || new Date().toISOString().split('T')[0] || null,
+    transactionId ?? null,
     t.type,
     t.category,
     t.amount,
@@ -27,6 +31,7 @@ export const saveToSheetDirect = async (data: IAIResponse) => {
     await enqueueSpreadsheetSyncJob(
       {
         date: t.date ?? null,
+        transactionId: transactionId ?? null,
         type: t.type ?? null,
         category: t.category ?? null,
         amount: t.amount ?? null,
@@ -55,6 +60,7 @@ export const saveToSheetDirect = async (data: IAIResponse) => {
     await enqueueSpreadsheetSyncJob(
       {
         date: t.date ?? null,
+        transactionId: transactionId ?? null,
         type: t.type ?? null,
         category: t.category ?? null,
         amount: t.amount ?? null,
@@ -83,6 +89,7 @@ export const resetSheetFromTransactions = async () => {
   `;
   const rows = transactions.map((transaction) => [
     transaction.date,
+    transaction.transaction_code ?? String(transaction.id),
     transaction.type,
     transaction.category,
     transaction.amount,
