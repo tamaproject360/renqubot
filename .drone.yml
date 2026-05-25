@@ -1,0 +1,48 @@
+kind: pipeline
+type: docker
+name: deploy-renqubot
+
+trigger:
+  branch:
+    - main
+  event:
+    - push
+    - custom
+
+steps:
+  - name: upload
+    image: appleboy/drone-scp
+    settings:
+      host: 192.168.0.112
+      username: root
+      key:
+        from_secret: renqubot_ssh_key
+      port: 22
+      target: /opt/renqubot
+      source:
+        - .
+      exclude:
+        - .env
+        - .env.*
+        - .git
+        - data
+        - node_modules
+        - apps/web/.next
+        - apps/web/tsconfig.tsbuildinfo
+        - '**/*.bak*'
+        - '**/__pycache__/**'
+
+  - name: deploy
+    image: appleboy/drone-ssh
+    settings:
+      host: 192.168.0.112
+      username: root
+      key:
+        from_secret: renqubot_ssh_key
+      port: 22
+      script:
+        - cd /opt/renqubot
+        - chmod +x deploy.sh
+        - ./deploy.sh
+    depends_on:
+      - upload
